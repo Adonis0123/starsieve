@@ -146,8 +146,6 @@ function md(text: string): string {
   return text.replace(/([\\`*_[\]<>|#])/g, '\\$1')
 }
 
-const code = (text: string) => `\`${text.replaceAll('`', '')}\``
-
 /** What the README shows besides the Items; the caller reads it from the user config, so renderReadme stays pure. */
 export interface ReadmeOptions {
   /** One line; default 技术收藏. */
@@ -165,7 +163,7 @@ function itemMeta(item: PublicItem): string[] {
   const same = (t: string) => t.toLowerCase() === language?.toLowerCase()
   const showLanguage = language && !(first !== undefined && same(first))
   const tags = (first === undefined ? [] : [first, ...rest.filter((t) => !showLanguage || !same(t))]).slice(0, 3)
-  return [showLanguage ? code(language) : '', tags.map(code).join(' ')].filter(Boolean)
+  return [showLanguage ? language : '', ...tags].filter(Boolean).map(md)
 }
 
 /**
@@ -205,8 +203,10 @@ export function renderReadme(doc: PublicDoc, options: ReadmeOptions = {}): strin
       lines.push('', `## ${md(category)}`, '')
       for (const item of list) {
         const link = 'id' in item ? `[${md(item.name)}](${item.url})` : `X · [@${md(item.author)}](${item.url})`
-        const rest = [item.summary ? md(item.summary) : '', ...itemMeta(item)].filter(Boolean).join(' · ')
-        lines.push(`- ${link}${rest ? ` — ${rest}` : ''}`)
+        // The Summary reads as a phrase after the dash; language and Tags go on a smaller second line.
+        const summary = item.summary ? md(item.summary.replace(/[。.]$/u, '')) : ''
+        const meta = itemMeta(item)
+        lines.push(`- ${link}${summary ? ` — ${summary}` : ''}${meta.length ? `<br><sub>${meta.join(' · ')}</sub>` : ''}`)
       }
       lines.push('', `[${t('↑ Back to contents')}](#${top})`)
     }

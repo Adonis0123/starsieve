@@ -247,7 +247,7 @@ describe('publish X Items', () => {
         // No text: forced private by apply.
         assert.ok(!text.includes('333'), 'post with no text published')
       }
-      assert.match(readme, /- X · \[@alice\]\(https:\/\/x.com\/alice\/status\/111\) — x:111 摘要 · `rust`/)
+      assert.match(readme, /- X · \[@alice\]\(https:\/\/x.com\/alice\/status\/111\) — x:111 摘要<br><sub>rust<\/sub>/)
       const k = await check(store)
       assert.deepEqual([k.bySource.x, k.skippedItems, k.pendingPublish], [{ items: 2, pendingClassification: 0 }, 1, false])
     })
@@ -327,8 +327,8 @@ describe('README', () => {
 
 ## AI 编程 Agent
 
-- [acme/one](https://github.com/acme/one) — 一个 CLI · \`Rust\` · \`工具\` \`cli\` \`tui\`
-- [acme/two](https://github.com/acme/two) — \`go\` \`cli\`
+- [acme/one](https://github.com/acme/one) — 一个 CLI<br><sub>Rust · 工具 · cli · tui</sub>
+- [acme/two](https://github.com/acme/two)<br><sub>go · cli</sub>
 
 [↑ 回到目录](#目录)
 
@@ -372,7 +372,7 @@ describe('README', () => {
 
 ## 目录
 
-- X · [@dev\\_1](https://x.com/dev_1/status/1) — a \\*b\\* \\[c\\] \\<d\\> \\|e\\| \\#f · \`教程\` \`ab\`
+- X · [@dev\\_1](https://x.com/dev_1/status/1) — a \\*b\\* \\[c\\] \\<d\\> \\|e\\| \\#f<br><sub>教程 · a\\\`b</sub>
 
 [↑ 回到目录](#目录-1)
 

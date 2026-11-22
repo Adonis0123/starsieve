@@ -38,6 +38,7 @@ The public README is produced by `renderReadme` in `src/publish/projection.ts`. 
 
 - Reason: 单行沿用成熟模板；去重和截取只影响展示，公开数据不变；星数会让 README 每天变化。
 - Revisit if: 手机截图显示元信息仍干扰摘要阅读。
+- Revised 2026-11-22 after the render check (screenshots: language and Tags looked alike as code spans, Chinese tags broke inside code spans): Summary first without its final 。, then `<br><sub>语言 · 标签…</sub>` as plain text.
 
 ### Q4 — 长列表组织
 
