@@ -19,8 +19,8 @@ export class LockedError extends Error {}
 const SETTLE_MS = 15
 /** Claims younger than this are not checked for pid reuse: their pid cannot have been recycled yet. */
 const REUSE_AGE_MS = 10_000
-/** A live pid whose process started more than this after the claim was made did not make it (covers ps's whole seconds). */
-const START_SLACK_MS = 10_000
+/** A live pid whose process started more than this after the claim was made did not make it: ps truncates to whole seconds, so a start read by `psStartedAt` is at most 1 s late. */
+const START_SLACK_MS = 2_000
 
 const CLAIM = /^(\d+)\.[0-9a-f-]{36}$/
 
@@ -40,17 +40,30 @@ export const systemProbe: ProcessProbe = {
       return (e as NodeJS.ErrnoException).code === 'EPERM'
     }
   },
-  // `ps -o etime=` is POSIX: elapsed time as [[dd-]hh:]mm:ss. Without ps (Windows) or on any failure: undefined.
-  startedAt(pid) {
-    return new Promise((done) => {
-      execFile('ps', ['-o', 'etime=', '-p', String(pid)], { timeout: 2000 }, (err, out) => {
-        const m = err ? null : /^\s*(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)\s*$/.exec(out)
-        if (!m) return done(undefined)
-        const [d, h, min, s] = [m[1], m[2], m[3], m[4]].map((x) => Number(x ?? 0)) as [number, number, number, number]
-        done(Date.now() - (((d * 24 + h) * 60 + min) * 60 + s) * 1000)
-      })
+  startedAt: (pid) => psStartedAt(pid),
+}
+
+/** Runs ps for `pid` and hands over its output, or undefined on any failure. */
+export type Ps = (pid: number, done: (out: string | undefined) => void) => void
+
+// `ps -o etime=` is POSIX: elapsed time as [[dd-]hh:]mm:ss. Without ps (Windows) or on any failure: undefined.
+const runPs: Ps = (pid, done) =>
+  void execFile('ps', ['-o', 'etime=', '-p', String(pid)], { timeout: 2000 }, (err, out) => done(err ? undefined : out))
+
+/**
+ * When `pid` started, from ps's elapsed time. The reference time is read before ps samples it, so a late callback
+ * (event-loop stall, machine sleep) only makes the start earlier: a live claimant is never mistaken for a recycled pid.
+ */
+export function psStartedAt(pid: number, ps: Ps = runPs, now: () => number = Date.now): Promise<number | undefined> {
+  const ref = now()
+  return new Promise((done) => {
+    ps(pid, (out) => {
+      const m = out === undefined ? null : /^\s*(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)\s*$/.exec(out)
+      if (!m) return done(undefined)
+      const [d, h, min, s] = [m[1], m[2], m[3], m[4]].map((x) => Number(x ?? 0)) as [number, number, number, number]
+      done(ref - (((d * 24 + h) * 60 + min) * 60 + s) * 1000)
     })
-  },
+  })
 }
 
 /** The claim files of the lock at `path`, with their pids. */

@@ -7,7 +7,7 @@ import { chmod, readdir, rm, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { withDir } from '../testing/fixtures.ts'
-import { acquireLock, LockedError, lockClaims, type ProcessProbe, systemProbe, withLock } from './lock.ts'
+import { acquireLock, LockedError, lockClaims, type ProcessProbe, type Ps, psStartedAt, systemProbe, withLock } from './lock.ts'
 
 const RIVAL = new URL('../testing/lock-rival.ts', import.meta.url).pathname
 
@@ -124,6 +124,30 @@ describe('lock', () => {
       assert.deepEqual((await lockClaims(path)).map((c) => c.pid), [process.pid], 'the recycled claim was removed')
       await release()
     })
+  })
+
+  it('a pid reused 3 s after the claim was made is a recycled pid: its claim is taken over', async () => {
+    await withDir(async (dir) => {
+      const path = join(dir, 'run.lock')
+      const claimedAt = Date.now() - 3_600_000
+      const old = `run.lock.4242.${randomUUID()}`
+      await writeFile(join(dir, old), '')
+      await utimes(join(dir, old), new Date(claimedAt), new Date(claimedAt))
+      const probe: ProcessProbe = { alive: () => true, startedAt: async () => claimedAt + 3_000 }
+      const release = await acquireLock(path, process.pid, { waitMs: 100, probe })
+      assert.deepEqual((await lockClaims(path)).map((c) => c.pid), [process.pid], 'the recycled claim was removed')
+      await release()
+    })
+  })
+
+  it('a ps answer that arrives late does not move the start later', async () => {
+    let clock = 1_000_000_000
+    // ps reports 1 h elapsed, but its answer reaches us a minute after it was asked for.
+    const slowPs: Ps = (_pid, done) => {
+      clock += 60_000
+      done('   01:00:00\n')
+    }
+    assert.equal(await psStartedAt(4242, slowPs, () => clock), 1_000_000_000 - 3_600_000)
   })
 
   it('the system probe reads a real process start time, so an old claim on this pid is taken over', async () => {
