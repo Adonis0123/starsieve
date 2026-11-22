@@ -1,7 +1,7 @@
 // The owner's machine settings, outside any store: ~/.config/starsieve/config.json.
-// `storePath`: the Private Store the Panel shows and `run` uses. `portalCss`: the Portal's local-tools.css that `site build`
-// inlines. `publicRepoPath`: the local clone of the public repository `run` publishes into; `publicRepo`: its `owner/name`
-// for `gh`. `schedulePush`: whether the LaunchAgent's run pushes (false: `--no-push`). `scheduleMaxBatches`: the
+// `storePath`: the Private Store the Panel shows and `run` uses. `portalCss` (optional): the Portal's local-tools.css that
+// `site build` inlines instead of its default stylesheet. `publicRepoPath`: the local clone of the public repository
+// `run` publishes into; `publicRepo`: its `owner/name` for `gh`. `schedulePush`: whether the LaunchAgent's run pushes (false: `--no-push`). `scheduleMaxBatches`: the
 // LaunchAgent's `--max-batches`. `mergeTimeoutMs`: how long `run` waits for the public PR to merge. `readme.title`: the
 // public README's title. `siteUrl`: the public site, linked from the README (never derived from `publicRepo`: the
 // repository name does not prove Pages is on, nor give a custom domain).

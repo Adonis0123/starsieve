@@ -4,7 +4,7 @@ Sorts the repositories you starred on GitHub and the technical posts you liked o
 
 Built so far: collect (GitHub stars, X likes and bookmarks), Backfill, classify, apply, override (and unskip), publish, check, the Portal Panel, the public site build, the daily `run` (git commit and push, PR with auto-merge, Heartbeat), GitHub Lists sync, the data repositories' CI templates and the LaunchAgent.
 
-Requires Node 22.18+ (runs the TypeScript sources directly), `gh` logged in, an agent CLI (default `cursor-agent`), and for X the `ego-browser` CLI with its `Default` profile logged in to x.com.
+Requires Node 22.18+ (runs the TypeScript sources directly), `gh` logged in, an agent CLI (default `cursor-agent`), and for X the `ego-browser` CLI with its `Default` profile logged in to x.com. The Local Tools Portal is optional: only the Panel needs it; `site build` and `run` work without it.
 
 ## Commands
 
@@ -120,13 +120,15 @@ One page renders both (`src/panel`). The Panel is the Local Tools Portal's `kind
 { "storePath": "~/path/to/stars-private", "portalCss": "~/path/to/skills-manager/web/shared/local-tools.css" }
 ```
 
-`site build` writes `index.html` from the Public Projection only (the filter `publish` uses), read-only, with its data inline so it opens from `file://`. The Portal's `local-tools.css` (tokens and `.lt-*` components) is inlined from `--css` or `portalCss`, so the site is built where that file exists. The site sorts by recently added or by stars and marks Items that need review ("待确认").
+`portalCss` is optional; see `site build` below.
+
+`site build` writes `index.html` from the Public Projection only (the filter `publish` uses), read-only, with its data inline so it opens from `file://`. Its stylesheet is inlined: the Portal's `local-tools.css` from `--css` or `portalCss` when one is set, else `src/site/default.css`, a trimmed copy of it (tokens and the `.lt-*` components the page uses). So the site builds without the Portal; only the Panel needs it. The site sorts by recently added or by stars and marks Items that need review ("待确认").
 
 ## Daily run
 
 `run` is the whole pipeline, one step after another; each step's result goes into `heartbeat.json` and the log `~/Library/Logs/starsieve/run-YYYYMMDD.log`. Only one run at a time (the lock `run.lock` next to the logs, taken the same way as the store lock below, trying for up to 1 s: a run whose process is gone is taken over). `--store` and `--public` default to `storePath` and `publicRepoPath` in `~/.config/starsieve/config.json`.
 
-1. `check`: the store, the private repository it lives in, the public clone and `portalCss`. The store must not be inside the public clone, its repository must not be the public clone's, and none of its `origin` URLs, fetch or push (`pushurl` included), may be the public repository (the same URL as one of the public clone's `origin` URLs, or the `publicRepo` slug, in any letter case). The store's JSON must also pass `check`. When anything in this step fails, the run stops and nothing in the store is committed or pushed: the Heartbeat is only written to the store, or not written at all when the store is inside the public clone (any file there could end up in a public commit).
+1. `check`: the store, the private repository it lives in and the public clone. The store must not be inside the public clone, its repository must not be the public clone's, and none of its `origin` URLs, fetch or push (`pushurl` included), may be the public repository (the same URL as one of the public clone's `origin` URLs, or the `publicRepo` slug, in any letter case). The store's JSON must also pass `check`. When anything in this step fails, the run stops and nothing in the store is committed or pushed: the Heartbeat is only written to the store, or not written at all when the store is inside the public clone (any file there could end up in a public commit).
 2. `collect-github`, `collect-x`: a failure (also a logged-out X) fails the run, but the run goes on and that Source is not published: its public Items stay as the public branch has them, except those the store no longer has as public (made private, skipped, gone), which are removed.
 3. `classify`: Batches of 25 until nothing is pending or `--max-batches` (`0`: classify nothing).
 4. `publish`, `site`: on branch `starsieve/YYYYMMDD` of the public clone (an open starsieve PR's branch, or an unpushed local branch, is reused), `data/items.json`, `README.md` and `docs/index.html`. Nothing is written when only star counts changed.

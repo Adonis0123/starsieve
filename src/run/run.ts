@@ -14,7 +14,7 @@ import { loadCategories, requireStore, STORE_LOCK, withStoreLock } from '../core
 import type { Source } from '../core/types.ts'
 import { type ListsSyncResult, listsSync } from '../lists/sync.ts'
 import { buildProjection, check, contentHash, holdSources, publish, type PublishOptions } from '../publish/projection.ts'
-import { buildSite } from '../site/build.ts'
+import { buildSite, DEFAULT_CSS } from '../site/build.ts'
 import { type Exec, exec as realExec, tail } from './exec.ts'
 import { commitPaths, currentBranch, git, githubSlug, originUrls, revParse, topLevel } from './git.ts'
 import { type Heartbeat, loadHeartbeat, saveHeartbeat, type StepResult, type StepStatus } from './heartbeat.ts'
@@ -64,7 +64,7 @@ export interface RunOptions {
   /** Print what would run; write nothing. */
   dryRun?: boolean
   maxBatches?: number
-  /** The Portal's local-tools.css, inlined by site build. */
+  /** The Portal's local-tools.css, inlined by site build; without it, the site's default stylesheet. */
   css?: string
   /** README title and site link, from the user config. */
   readme?: PublishOptions['readme']
@@ -283,7 +283,6 @@ export async function run(options: RunOptions): Promise<RunReport> {
       const k = await check(store)
       privateTop = repos.top
       storeSpec = relative(privateTop, store) || '.'
-      if (!options.css) throw new Error('no stylesheet for the site: set "portalCss" in ~/.config/starsieve/config.json')
       report.pendingClassification = k.pendingClassification
       return `${k.items} Items, ${k.pendingClassification} to classify; private repository ${privateTop}`
     })
@@ -379,7 +378,7 @@ export async function run(options: RunOptions): Promise<RunReport> {
 
       await step('site', async () => {
         if (!changed || !doc) return { status: 'skipped', detail: 'nothing new to publish' }
-        const r = await buildSite(store, join(pub, 'docs'), { css: options.css, doc }).finally(() => recordWritten([SITE_FILE]))
+        const r = await buildSite(store, join(pub, 'docs'), { css: options.css ?? DEFAULT_CSS, doc }).finally(() => recordWritten([SITE_FILE]))
         return `${r.path}: ${r.publicItems} public Items`
       })
 

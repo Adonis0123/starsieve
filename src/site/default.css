@@ -1,0 +1,423 @@
+/*
+ * starsieve's default stylesheet for the public site: a trimmed copy of the Local Tools Portal's
+ * web/shared/local-tools.css (same owner), kept to the tokens and .lt-* rules the site page uses, so
+ * `site build` works without the Portal. `--css` or `portalCss` replaces it with the full file.
+ * Light values by default; data-lt-theme="dark" or "auto" (follows the system) switch to the dark ones.
+ */
+:root {
+  /* Kit tokens (docs/portal-architecture.md §5.1): sideby's PanelThemeTokens names in kebab case
+     (--kit-font-size is fontSize). They are the source; the sideby Panel's theme is read from them
+     by name (core/accounts-surface.ts), and the --lt-* tokens below that mean the same thing are
+     aliases of them. Values may use the --lt-* scale (weights). */
+  --kit-font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --kit-font-size: 14px;
+  --kit-small-size: 12px;
+  --kit-control-size: 13px;
+  --kit-heading-size: 16px;
+  --kit-large-size: var(--kit-heading-size);
+  --kit-title-size: 20px;
+  --kit-title-weight: var(--lt-weight-strong);
+  --kit-heading-weight: var(--lt-weight-strong);
+  --kit-strong-weight: var(--lt-weight-strong);
+  --kit-button-weight: var(--lt-weight-medium);
+  --kit-primary-weight: var(--lt-weight-medium);
+  /* Colors: the design system's "Teal" theme, the default (brand repo design-system/, 2026-10-24). Between
+     brand:light and brand:end the values are generated from design-system/tokens.json by
+     scripts/sync-brand-theme.ts; change the brand files and rerun it, never edit the hex here. */
+  /* brand:light */
+  --kit-bg: #F9F9FB;
+  --kit-surface: #FCFCFD;
+  --kit-surface-muted: #F0F0F3;
+  --kit-border: #E0E1E6;
+  --kit-border-strong: #D9D9E0;
+  --kit-text: #1C2024;
+  --kit-muted: #60646C;
+  --kit-faint: #8B8D98;
+  --kit-hover: #F9F9FB;
+  --kit-active: #E8E8EC;
+  --kit-accent: #04706D;
+  --kit-accent-soft: #E3F2F2;
+  --kit-focus: #37A29D;
+  --kit-primary: #0E8C88;
+  --kit-primary-hover: #2B9A96;
+  --kit-primary-active: #2B9A96;
+  --kit-on-primary: #FFFFFF;
+  --kit-primary-border: #0E8C88;
+  --kit-primary-hover-border: #2B9A96;
+  --kit-button-text: #1C2024;
+  --kit-button-hover-border: #CDCED6;
+  --kit-ok: #1C2024;
+  --kit-ok-soft: #DAEEDF;
+  --kit-warn: #A44D00;
+  --kit-warn-soft: #FAF0CA;
+  --kit-fail: #641723;
+  --kit-fail-soft: #F9E2E2;
+  --kit-ok-bar: #27A644;
+  --kit-warn-bar: #F0BF00;
+  --kit-fail-bar: #EB5757;
+  --kit-track: #E8E8EC;
+  --kit-logo-bg: #E3F2F2;
+  --kit-logo-border: #E0E1E6;
+  --lt-popover: #FCFCFD;
+  --lt-sidebar: #F9F9FB;
+  --lt-brand: #2BA5A0;
+  --lt-soft-fg: #04706D;
+  --lt-nav-active: #DAECED;
+  --lt-tint: #E3F2F2;
+  --lt-tint-line: #37A29D;
+  --lt-ring-halo: #C1E1E0;
+  --lt-danger-line: #F7CACB;
+  --lt-warn-bar: #F0BF00;
+  --lt-tooltip: #1C2024;
+  --lt-tooltip-fg: #FCFCFD;
+  --lt-shadow-tint: #1C2024;
+  --lt-primary-glow: 0 12px 26px -14px #A7E4E0;
+  /* brand:end */
+  --kit-focus-outline: none;
+  --kit-focus-ring: 0 0 0 3px var(--lt-ring-halo);
+  /* Secondary buttons only change their fill on hover. */
+  --kit-button-hover-text: var(--kit-button-text);
+  --kit-check-color: var(--kit-focus);
+  /* The buddies never follow the theme: the sideby mark keeps its blue body. */
+  --kit-logo-color: #3f8fc4; /* design-system-ignore: the sideby mark's fixed brand blue, not a theme color */
+  /* The swatch beside each Colors choice in Settings (generated: each palette's light main button). */
+  /* brand:swatches */
+  --lt-swatch-teal: #0E8C88;
+  --lt-swatch-leaf: #568C11;
+  --lt-swatch-celeste: #0182D3;
+  --lt-swatch-claude: #DE4E13;
+  --lt-swatch-codex: #0D0D0D;
+  /* brand:end */
+  /* Code blocks (Blog articles): highlighted with a dark code theme, so they stay a dark surface; in dark mode the
+     dark blocks below make it the quiet step between page and card. */
+  --lt-code-bg: var(--lt-tooltip);
+  --lt-code-fg: var(--lt-tooltip-fg);
+  /* The check on the selected Colors dot. Every dot is a palette's light main button, dark enough for white text, so the
+     check stays near-white in both modes: the light surface here, the light text color in the dark blocks. */
+  --lt-on-swatch: var(--lt-surface);
+  --kit-shadow: none;
+  --kit-radius: 10px;
+  --kit-control-radius: 6px;
+  --kit-chip-radius: 4px;
+  /* Control heights (design system: md 28 / lg 32). */
+  --kit-control-height: 32px;
+  --kit-control-height-small: 28px;
+  --kit-field-height: var(--kit-control-height);
+  --kit-content-width: none;
+  --kit-gutter: max(24px, calc((100vw - 1480px) / 2));
+
+  --lt-font: var(--kit-font);
+  /* Type weights (design system): text 400; buttons, table heads and current items 500; titles and 11px uppercase labels 600. */
+  --lt-weight-regular: 400;
+  --lt-weight-medium: 500;
+  --lt-weight-strong: 600;
+  --lt-weight-label: 600;
+  /* Type scale (px, design system): label 11 · meta 12 · control 13 · body 14 · title 16 · section 20 · page 20 · display 20.
+     Shared rules write the px value itself (the spec check reads literal sizes); these names stay for the pages. */
+  --lt-size-label: 11px;
+  --lt-size-meta: var(--kit-small-size);
+  --lt-size-control: var(--kit-control-size);
+  --lt-size-body: var(--kit-font-size);
+  --lt-size-title: var(--kit-heading-size);
+  --lt-size-section: 20px;
+  --lt-size-page: var(--kit-title-size);
+  --lt-size-display: 20px;
+  --lt-text: var(--kit-text);
+  --lt-muted: var(--kit-muted);
+  --lt-page: var(--kit-bg);
+  --lt-surface: var(--kit-surface);
+  --lt-surface-quiet: var(--kit-surface-muted);
+  --lt-soft: var(--kit-accent-soft);
+  --lt-soft-strong: var(--kit-active);
+  /* The strong accent for text, sort arrows and tab underlines: the link color. Focus has its own --kit-focus (in the
+     Codex theme the only blue on the page). */
+  --lt-brand-strong: var(--kit-accent);
+  --lt-brand-ink: var(--kit-accent);
+  --lt-ink: var(--kit-text);
+  --lt-line: var(--kit-border);
+  --lt-line-strong: var(--kit-border-strong);
+  --lt-danger: var(--kit-fail);
+
+  --lt-radius: var(--kit-control-radius);
+  --lt-radius-panel: var(--kit-radius);
+  /* Main buttons are pills (design system radius.pill, button rule 2026-10-25). */
+  --lt-radius-pill: 9999px;
+  --lt-control-height: var(--kit-control-height);
+  --lt-shell-gutter: var(--kit-gutter);
+  --lt-nav-height: 48px;
+  --lt-header-height: 84px;
+
+  /* State rules: hover is a neutral wash; selected is the pale accent fill with accent text, no outline, weight 500
+     (design-system README, rule 4); focus recolors the border and adds a soft halo. */
+  --lt-hover-tint: var(--kit-hover);
+  --lt-press-tint: var(--kit-active);
+  --lt-selected-bg: var(--lt-soft);
+  --lt-selected-fg: var(--lt-soft-fg);
+  --lt-selected-line: transparent;
+  --lt-btn-bg: var(--lt-surface);
+  --lt-btn-line: var(--lt-line-strong);
+  --lt-btn-fg: var(--kit-button-text);
+  --lt-btn-hover-bg: var(--lt-hover-tint);
+  --lt-btn-hover-line: var(--kit-button-hover-border);
+  --lt-btn-hover-fg: var(--kit-button-hover-text);
+  --lt-btn-active-bg: var(--lt-press-tint);
+  --lt-focus-halo: var(--kit-focus-ring);
+  --lt-danger-bg: var(--kit-fail-soft);
+  --lt-control-height-sm: var(--kit-control-height-small);
+  /* Segmented control: white track so the pale leaf selected item stands out. */
+  --lt-seg-track: var(--lt-surface);
+  --lt-seg-track-line: var(--lt-line-strong);
+  --lt-primary-bg: var(--kit-primary);
+  --lt-primary-fg: var(--kit-on-primary);
+  --lt-primary-line: var(--kit-primary-border);
+  --lt-primary-hover-bg: var(--kit-primary-hover);
+  --lt-primary-hover-line: var(--kit-primary-hover-border);
+  --lt-primary-active-bg: var(--kit-primary-active);
+  --lt-primary-active-line: var(--kit-primary-hover-border);
+  --lt-focus-ring: 2px solid var(--kit-focus);
+  --lt-transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+
+  /* Design-system names (brand repo design-system/components/tokens.css) for the shared rules and any page that
+     follows the component library: motion, radii, and the selected / current-item roles as aliases of the theme. */
+  --duration-fast: 120ms;
+  --duration-base: 160ms;
+  --duration-slow: 200ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-pill: 9999px;
+  --selected: var(--lt-selected-bg);
+  --accent-foreground: var(--lt-selected-fg);
+  --nav-active: var(--lt-nav-active);
+  --nav-active-foreground: var(--lt-soft-fg);
+}
+
+/* Dark values. Only a page that opts in follows them: <html data-lt-theme="auto"> follows the system,
+   data-lt-theme="dark" forces them. Page and sidebar share the darkest step, cards sit one big step
+   lighter, links one step brighter (theme.json dark roles). The two blocks below must stay
+   identical (tests/portal-tools.test.ts); scripts/sync-brand-theme.ts writes both. */
+:root[data-lt-theme="dark"] {
+  color-scheme: dark;
+  --lt-code-bg: var(--kit-surface-muted);
+  --lt-code-fg: var(--kit-text);
+  --lt-on-swatch: var(--kit-text);
+  /* brand:dark */
+  --kit-bg: #111113;
+  --kit-surface: #212225;
+  --kit-surface-muted: #272A2D;
+  --kit-border: #2E3135;
+  --kit-border-strong: #363A3F;
+  --kit-text: #EDEEF0;
+  --kit-muted: #B0B4BA;
+  --kit-faint: #696E77;
+  --kit-hover: #272A2D;
+  --kit-active: #2E3135;
+  --kit-accent: #89C7C3;
+  --kit-accent-soft: #253D3F;
+  --kit-focus: #289591;
+  --kit-primary: #0E8C88;
+  --kit-primary-hover: #2B9A96;
+  --kit-primary-active: #2B9A96;
+  --kit-on-primary: #FFFFFF;
+  --kit-primary-border: #0E8C88;
+  --kit-primary-hover-border: #2B9A96;
+  --kit-button-text: #EDEEF0;
+  --kit-button-hover-border: #43484E;
+  --kit-ok: #EDEEF0;
+  --kit-ok-soft: #22372A;
+  --kit-warn: #FFCA16;
+  --kit-warn-soft: #4A411E;
+  --kit-fail: #FF9592;
+  --kit-fail-soft: #412A2D;
+  --kit-ok-bar: #27A644;
+  --kit-warn-bar: #F0BF00;
+  --kit-fail-bar: #EB5757;
+  --kit-track: #2E3135;
+  --kit-logo-bg: #253D3F;
+  --kit-logo-border: #2E3135;
+  --lt-popover: #212225;
+  --lt-sidebar: #111113;
+  --lt-brand: #34ABA6;
+  --lt-soft-fg: #89C7C3;
+  --lt-nav-active: #193636;
+  --lt-tint: #253D3F;
+  --lt-tint-line: #289591;
+  --lt-ring-halo: #223738;
+  --lt-danger-line: #5E3234;
+  --lt-warn-bar: #F0BF00;
+  --lt-tooltip: #EDEEF0;
+  --lt-tooltip-fg: #111113;
+  --lt-shadow-tint: #000000;
+  --lt-primary-glow: none;
+  /* brand:end */
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-lt-theme="auto"] {
+    color-scheme: dark;
+    --lt-code-bg: var(--kit-surface-muted);
+    --lt-code-fg: var(--kit-text);
+    --lt-on-swatch: var(--kit-text);
+    /* brand:dark */
+    --kit-bg: #111113;
+    --kit-surface: #212225;
+    --kit-surface-muted: #272A2D;
+    --kit-border: #2E3135;
+    --kit-border-strong: #363A3F;
+    --kit-text: #EDEEF0;
+    --kit-muted: #B0B4BA;
+    --kit-faint: #696E77;
+    --kit-hover: #272A2D;
+    --kit-active: #2E3135;
+    --kit-accent: #89C7C3;
+    --kit-accent-soft: #253D3F;
+    --kit-focus: #289591;
+    --kit-primary: #0E8C88;
+    --kit-primary-hover: #2B9A96;
+    --kit-primary-active: #2B9A96;
+    --kit-on-primary: #FFFFFF;
+    --kit-primary-border: #0E8C88;
+    --kit-primary-hover-border: #2B9A96;
+    --kit-button-text: #EDEEF0;
+    --kit-button-hover-border: #43484E;
+    --kit-ok: #EDEEF0;
+    --kit-ok-soft: #22372A;
+    --kit-warn: #FFCA16;
+    --kit-warn-soft: #4A411E;
+    --kit-fail: #FF9592;
+    --kit-fail-soft: #412A2D;
+    --kit-ok-bar: #27A644;
+    --kit-warn-bar: #F0BF00;
+    --kit-fail-bar: #EB5757;
+    --kit-track: #2E3135;
+    --kit-logo-bg: #253D3F;
+    --kit-logo-border: #2E3135;
+    --lt-popover: #212225;
+    --lt-sidebar: #111113;
+    --lt-brand: #34ABA6;
+    --lt-soft-fg: #89C7C3;
+    --lt-nav-active: #193636;
+    --lt-tint: #253D3F;
+    --lt-tint-line: #289591;
+    --lt-ring-halo: #223738;
+    --lt-danger-line: #5E3234;
+    --lt-warn-bar: #F0BF00;
+    --lt-tooltip: #EDEEF0;
+    --lt-tooltip-fg: #111113;
+    --lt-shadow-tint: #000000;
+    --lt-primary-glow: none;
+    /* brand:end */
+  }
+}
+:root[data-lt-theme="light"] { color-scheme: light }
+
+html { scrollbar-gutter: stable; scroll-padding-top: calc(var(--lt-nav-height) + 12px) }
+
+/* Page skeleton. :where() keeps the shell at zero specificity so page rules still win. */
+body { font-family: var(--lt-font); font-size: 16px; font-weight: 400; line-height: 1.5; font-variant-numeric: tabular-nums }
+:where(.lt-shell, body > main) { margin-inline: var(--lt-shell-gutter) }
+
+/* [data-tip] carries a tooltip text; the Portal's script draws it, the site has no tooltip box. */
+[data-tip] { cursor: help }
+:is(button, a[href], label, select, input[type="checkbox"], summary, [role="button"])[data-tip] { cursor: pointer }
+:is(button:disabled, [aria-busy="true"])[data-tip] { cursor: progress }
+
+/* App header: icon, title and one-line purpose on the left; status or actions on the right. */
+.app-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; width: 100%; min-height: var(--lt-header-height); margin: 0; padding: 16px var(--lt-shell-gutter); border: 0; border-bottom: 1px solid var(--lt-line); border-radius: 0; box-shadow: none; background: var(--lt-surface); font-family: var(--lt-font) }
+.app-header .brand { display: flex; align-items: center; gap: 12px; min-width: 0; color: var(--lt-text); text-decoration: none }
+.app-header .brand-copy { min-width: 0 }
+.app-header h1 { margin: 0; color: var(--lt-text); font-size: 20px; font-weight: 600; line-height: 1.3; letter-spacing: -.025em }
+.app-header .subtitle { display: block; margin: 4px 0 0; color: var(--lt-muted); font-size: 13px; font-weight: 400; line-height: 1.5 }
+.app-header .workspace-note { color: var(--lt-muted); font-size: 13px; white-space: nowrap }
+.app-header .mark { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: var(--radius-xl); overflow: hidden }
+.app-header .mark img { display: block; width: 40px; height: 40px }
+
+/* Controls. Opt in with the classes below; every family shares the same state rules. */
+
+/* Buttons: .lt-btn + optional .lt-btn-primary / -ghost, size .lt-btn-sm. */
+.lt-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--lt-control-height); padding: 0 16px; border: 1px solid var(--lt-btn-line); border-radius: var(--radius-md); color: var(--lt-btn-fg); background: var(--lt-btn-bg); font-family: var(--lt-font); font-size: 13px; font-weight: 500; line-height: 1.2; white-space: nowrap; cursor: pointer; transition: var(--lt-transition) }
+.lt-btn:hover:not(:disabled) { border-color: var(--lt-btn-hover-line); color: var(--lt-btn-hover-fg); background: var(--lt-btn-hover-bg) }
+.lt-btn:active:not(:disabled) { background: var(--lt-btn-active-bg) }
+.lt-btn-primary { border-color: var(--lt-primary-line); border-radius: var(--radius-pill); color: var(--lt-primary-fg); background: var(--lt-primary-bg); font-weight: 500; box-shadow: var(--lt-primary-glow) }
+.lt-btn-primary:hover:not(:disabled) { border-color: var(--lt-primary-hover-line); color: var(--lt-primary-fg); background: var(--lt-primary-hover-bg) }
+.lt-btn-primary:active:not(:disabled) { border-color: var(--lt-primary-active-line); background: var(--lt-primary-active-bg) }
+.lt-btn-ghost { border-color: transparent; color: var(--lt-brand-ink); background: transparent }
+.lt-btn-ghost:hover:not(:disabled) { border-color: transparent; color: var(--lt-brand-ink); background: var(--lt-hover-tint) }
+.lt-btn-ghost:active:not(:disabled) { background: var(--lt-press-tint) }
+/* Controls written as links (a.lt-btn, a.lt-chip, …) look like their button form: no underline. */
+:is(a.lt-btn, a.lt-chip, a.lt-seg-item, a.lt-list-item) { text-decoration: none }
+.lt-btn-sm { min-height: var(--lt-control-height-sm); padding: 0 12px; font-size: 12px; font-weight: 500 }
+.lt-btn:disabled, .lt-seg-item:disabled, .lt-chip:disabled { cursor: not-allowed; opacity: .5 }
+
+/* Selectable families: segmented group, chips, sidebar list items and underline tabs.
+   Selected = [aria-pressed="true"], [aria-selected="true"], [aria-current="page"], .is-active or .active: the soft
+   accent fill with accent text, weight 500, no outline (design-system README, rule 4). The segmented group follows the
+   component library: an outlined 32px track with no inner padding, items 4px-rounded and 1px in. */
+.lt-segmented { display: inline-flex; align-items: stretch; gap: 0; padding: 0; border: 1px solid var(--lt-seg-track-line); border-radius: var(--radius-md); background: var(--lt-seg-track) }
+.lt-segmented .lt-seg-item { justify-content: center; min-height: 30px; border-radius: var(--radius-sm); background-clip: padding-box }
+.lt-seg-item, .lt-chip, .lt-list-item { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--lt-muted); background: transparent; font-family: var(--lt-font); font-size: 13px; font-weight: 500; line-height: 1.2; white-space: nowrap; cursor: pointer; transition: var(--lt-transition) }
+.lt-chip { border-color: var(--lt-line); background: var(--lt-surface) }
+/* Small chip for dense rows (list metadata, inline counts). */
+.lt-chip.lt-chip-sm { gap: 4px; min-height: 24px; padding: 0 8px; font-size: 12px }
+.lt-list-item { display: flex; width: 100%; min-height: 36px; justify-content: space-between; font-size: 14px }
+.lt-seg-item:hover:not(:disabled), .lt-chip:hover:not(:disabled), .lt-list-item:hover:not(:disabled) { color: var(--lt-text); background: var(--lt-hover-tint) }
+.lt-seg-item:active:not(:disabled), .lt-chip:active:not(:disabled), .lt-list-item:active:not(:disabled) { background: var(--lt-press-tint) }
+:is(.lt-seg-item, .lt-chip, .lt-list-item):is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], .is-active, .active) { color: var(--accent-foreground); background: var(--selected); font-weight: 500 }
+.lt-count { color: inherit; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; opacity: .75 }
+.lt-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--lt-line) }
+.lt-tab { position: relative; min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--radius-md) var(--radius-md) 0 0; color: var(--lt-muted); background: transparent; font-family: var(--lt-font); font-size: 14px; font-weight: 500; line-height: 1.2; cursor: pointer; transition: var(--lt-transition) }
+.lt-tab:hover { color: var(--lt-text); background: var(--lt-hover-tint) }
+.lt-tab:is([aria-pressed="true"], [aria-selected="true"], .is-active, .active) { color: var(--accent-foreground); background: transparent; font-weight: 500 }
+.lt-tab:is([aria-pressed="true"], [aria-selected="true"], .is-active, .active)::after { position: absolute; right: 12px; bottom: -1px; left: 12px; height: 2px; border-radius: var(--radius-sm); background: var(--lt-brand-strong); content: "" }
+
+/* Fields: inputs and selects share the button height. */
+.lt-field { min-height: var(--lt-control-height); padding: 0 12px; border: 1px solid var(--lt-line-strong); border-radius: var(--radius-md); color: var(--lt-text); background: var(--lt-surface); font-family: var(--lt-font); font-size: 14px; font-weight: 400; line-height: 1.4; transition: var(--lt-transition) }
+.lt-field:hover { border-color: var(--lt-btn-hover-line) }
+.lt-field:focus { border-color: var(--kit-focus); outline: none; box-shadow: var(--lt-focus-halo) }
+.lt-field::placeholder { color: var(--lt-muted) }
+/* Selects drop the native arrow for a chevron drawn with two gradient strokes: Todo/Blog CSP
+   blocks data: images, and gradients let the chevron follow the hover/focus color. */
+select.lt-field { --lt-chevron: var(--lt-muted); appearance: none; padding-right: 36px; text-overflow: ellipsis; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent calc(50% - .8px), var(--lt-chevron) calc(50% - .8px) calc(50% + .8px), transparent calc(50% + .8px)), linear-gradient(-45deg, transparent calc(50% - .8px), var(--lt-chevron) calc(50% - .8px) calc(50% + .8px), transparent calc(50% + .8px));
+  background-position: right 18px center, right 13px center; background-size: 5px 5px; background-repeat: no-repeat }
+select.lt-field:is(:hover, :focus) { --lt-chevron: var(--lt-text) }
+select.lt-field:disabled { cursor: not-allowed; opacity: .5 }
+
+/* One border only: focus recolors the control's own border and adds a halo, no offset outline. */
+:is(.lt-btn, .lt-seg-item, .lt-chip, .lt-list-item):focus-visible { border-color: var(--kit-focus); outline: none; box-shadow: var(--lt-focus-halo) }
+.lt-tab:focus-visible { outline: none; box-shadow: inset var(--lt-focus-halo) }
+
+/* Native checkboxes, radios, ranges and progress bars take the theme's accent everywhere (2026-11-16); zero
+   specificity, so a page's own rule still wins. */
+:where(input[type="checkbox"], input[type="radio"], input[type="range"], progress) { accent-color: var(--kit-accent) }
+
+/* Text button: an action that reads like a link ("Refresh", "Show all"). Accent text, no box; underline on hover. */
+.lt-btn-link { display: inline; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--lt-brand-ink); background: none; font: inherit; font-weight: 500; text-decoration: none; text-underline-offset: 2px; cursor: pointer }
+.lt-btn-link:hover:not(:disabled) { text-decoration: underline }
+.lt-btn-link:focus-visible { outline: var(--lt-focus-ring); outline-offset: 2px }
+.lt-btn-link:disabled { cursor: not-allowed; opacity: .5 }
+a.lt-btn-link { text-decoration: none }
+
+/* Read-only status badge or tag: neutral by default; .is-ok / .is-warn / .is-fail are the status tints with a dot in
+   the status block color, .is-accent the selected tint. The text always says the state (color never means it alone). */
+.lt-badge { display: inline-flex; align-items: center; gap: 4px; min-height: 20px; padding: 0 8px; border-radius: var(--radius-sm); color: var(--lt-muted); background: var(--lt-surface-quiet); font-size: 12px; font-weight: 500; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums }
+/* A badge that brings its own icon (an <svg> child) shows the icon instead of the status dot. */
+.lt-badge:is(.is-ok, .is-warn, .is-fail):not(:has(> svg))::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--lt-badge-dot) }
+.lt-badge.is-ok { --lt-badge-dot: var(--kit-ok-bar); color: var(--kit-ok); background: var(--kit-ok-soft) }
+.lt-badge.is-warn { --lt-badge-dot: var(--kit-warn-bar); color: var(--kit-warn); background: var(--kit-warn-soft) }
+.lt-badge.is-fail { --lt-badge-dot: var(--kit-fail-bar); color: var(--kit-fail); background: var(--kit-fail-soft) }
+.lt-badge.is-accent { color: var(--accent-foreground); background: var(--selected) }
+/* On a quiet (grey) surface a badge needs its own edge: surface fill and a hairline. */
+.lt-badge.is-outline { border: 1px solid var(--lt-line); background: var(--lt-surface) }
+
+@media (max-width: 760px) {
+  .app-header { grid-template-columns: 1fr; gap: 12px; padding: 16px 12px }
+  :where(.lt-shell, body > main) { margin-inline: 12px }
+}
+
+/* Toast. */
+.lt-open-toast { position: fixed; z-index: 70; bottom: 20px; left: 50%; max-width: min(560px, calc(100vw - 32px)); padding: 8px 16px; border: 1px solid var(--lt-line); border-radius: var(--radius-xl); background: var(--lt-popover); box-shadow: 0 8px 24px color-mix(in srgb, var(--lt-shadow-tint) 16%, transparent); color: var(--lt-ink); font-family: var(--lt-font); font-size: 13px; font-weight: 400; line-height: 1.4; transform: translateX(-50%) }
+.lt-open-toast[hidden] { display: none }
+.lt-open-toast.is-error { border-color: var(--lt-danger-line); background: var(--lt-danger-bg); color: var(--lt-danger) }

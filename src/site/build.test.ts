@@ -6,7 +6,7 @@ import { describe, it } from 'node:test'
 import { overrideItem } from '../core/override.ts'
 import { saveSkipped } from '../core/store.ts'
 import { seedMixedStore, star, withDir, xRaw } from '../testing/fixtures.ts'
-import { buildSite } from './build.ts'
+import { buildSite, DEFAULT_CSS } from './build.ts'
 
 const CSS = ':root { --kit-bg: var(--x); }\n.lt-btn { min-height: 32px }\n'
 
@@ -47,10 +47,18 @@ describe('site build', () => {
     })
   })
 
-  it('names the next step when no stylesheet is given', async () => {
+  it('inlines the default stylesheet when neither --css nor portalCss names one', async () => {
     await withDir(async (dir) => {
       const store = await seedMixedStore(dir, [star('acme/a')], [])
-      await assert.rejects(buildSite(store, join(dir, 'site'), { configPath: join(dir, 'none.json') }), /--css/)
+      const r = await buildSite(store, join(dir, 'site'), { configPath: join(dir, 'none.json') })
+      assert.equal(r.css, DEFAULT_CSS)
+      const html = await readFile(join(dir, 'site', 'index.html'), 'utf8')
+      assert.ok(html.includes(await readFile(DEFAULT_CSS, 'utf8')))
+      // portalCss still wins over the default.
+      const configPath = join(dir, 'config.json')
+      await writeFile(join(dir, 'portal.css'), CSS)
+      await writeFile(configPath, JSON.stringify({ portalCss: join(dir, 'portal.css') }))
+      assert.equal((await buildSite(store, join(dir, 'site'), { configPath })).css, join(dir, 'portal.css'))
     })
   })
 })

@@ -1,9 +1,11 @@
 // site build: the public site, one index.html that opens offline (file://) as well as on GitHub Pages.
 // Its cards come only from buildProjection(), the same filter `publish` runs (ADR 0002); it renders with the Panel's
-// page and client code, read-only. The Portal's local-tools.css (tokens and .lt-* components) is inlined, since the
-// Portal is not there; the page uses its default light values. No timestamps, so the same store gives the same file.
+// page and client code, read-only. A stylesheet with the Portal's tokens and .lt-* components is inlined, since the
+// Portal is not there: the Portal's local-tools.css when one is given, else default.css, a trimmed copy shipped here.
+// The page uses the light values. No timestamps, so the same store gives the same file.
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { writeText } from '../core/json.ts'
 import { loadCategories } from '../core/store.ts'
 import { defaultUserConfigPath, loadUserConfig } from '../core/user-config.ts'
@@ -12,7 +14,7 @@ import { siteData } from '../panel/view.ts'
 import { buildProjection, type PublicDoc } from '../publish/projection.ts'
 
 export interface SiteOptions {
-  /** The Portal's local-tools.css; else `portalCss` in ~/.config/starsieve/config.json. */
+  /** The Portal's local-tools.css; else `portalCss` in ~/.config/starsieve/config.json; else DEFAULT_CSS. */
   css?: string
   configPath?: string
   /** The Public Projection to render, when the caller already built it (run, with a held Source); else built here. */
@@ -28,14 +30,13 @@ export interface SiteResult {
 
 export class SiteError extends Error {}
 
+/** The stylesheet the site uses when neither `--css` nor `portalCss` names one. */
+export const DEFAULT_CSS = fileURLToPath(new URL('./default.css', import.meta.url))
+
 async function cssPath(options: SiteOptions): Promise<string> {
   if (options.css) return options.css
-  const configPath = options.configPath ?? defaultUserConfigPath()
-  const config = await loadUserConfig(configPath)
-  if (config?.portalCss) return config.portalCss
-  throw new SiteError(
-    `no stylesheet: pass --css <path to the Portal's web/shared/local-tools.css>, or set "portalCss" in ${configPath}`,
-  )
+  const config = await loadUserConfig(options.configPath ?? defaultUserConfigPath())
+  return config?.portalCss ?? DEFAULT_CSS
 }
 
 export async function buildSite(storeDir: string, outDir: string, options: SiteOptions = {}): Promise<SiteResult> {
