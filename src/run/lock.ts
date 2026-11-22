@@ -1,30 +1,56 @@
-// Locks made of claim files. `acquireLock`: one run at a time on this machine. `withLock`: waits for the lock instead
-// (the store write lock, held only for one read-modify-write).
-// A process claims the lock at `path` by creating its own file `<path>.<pid>.<uuid>`, then listing the directory: it
-// holds the lock when no claim of another live process is there. A claim whose pid is gone is removed by its exact
-// name, so taking over a dead process's lock can never remove a claim someone else just made (unlike stat-then-remove
-// on one shared file, where two processes can each remove the stale lock and both end up holding a new one).
-// This relies on a directory listing showing every file created before the listing started (true of local file
-// systems). proper-lockfile 4.1.2 is not used: its stale takeover is that same stat → rmdir → mkdir sequence.
+// Locks made of claim files. `acquireLock`: one run at a time on this machine, retrying briefly. `withLock`: waits for
+// the lock longer (the store write lock, held only for one read-modify-write).
+// A process claims the lock at `path` by creating its own empty file `<path>.<pid>.<uuid>`, then listing the
+// directory: it holds the lock when no claim of another live process is there. A claim whose process is gone is
+// removed by its exact name, so taking over a dead process's lock can never remove a claim someone else just made
+// (unlike stat-then-remove on one shared file, where two processes can each remove the stale lock and both end up
+// holding a new one). This relies on a directory listing showing every file created before the listing started (true
+// of local file systems). proper-lockfile 4.1.2 is not used: its stale takeover is that same stat → rmdir → mkdir.
+// When live claims meet, the earliest (mtime, then name) stays and looks again; the others withdraw and retry later,
+// so contention ends with one holder instead of everyone stepping back.
+import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, open, readdir, rm, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 
 export class LockedError extends Error {}
 
-/** When claimants arrive together, the lowest claim looks again this many times before giving up. */
-const SETTLE_TRIES = 10
+/** How often a claim that is first in line looks again. */
 const SETTLE_MS = 15
+/** Claims younger than this are not checked for pid reuse: their pid cannot have been recycled yet. */
+const REUSE_AGE_MS = 10_000
+/** A live pid whose process started more than this after the claim was made did not make it (covers ps's whole seconds). */
+const START_SLACK_MS = 10_000
 
 const CLAIM = /^(\d+)\.[0-9a-f-]{36}$/
 
-function alive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (e) {
-    return (e as NodeJS.ErrnoException).code === 'EPERM'
-  }
+/** How a lock tells whether a claim's process still exists. Injectable so tests can fake a recycled pid. */
+export interface ProcessProbe {
+  alive(pid: number): boolean
+  /** When the process `pid` started, in ms since the epoch; undefined when that cannot be told. */
+  startedAt(pid: number): Promise<number | undefined>
+}
+
+export const systemProbe: ProcessProbe = {
+  alive(pid) {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch (e) {
+      return (e as NodeJS.ErrnoException).code === 'EPERM'
+    }
+  },
+  // `ps -o etime=` is POSIX: elapsed time as [[dd-]hh:]mm:ss. Without ps (Windows) or on any failure: undefined.
+  startedAt(pid) {
+    return new Promise((done) => {
+      execFile('ps', ['-o', 'etime=', '-p', String(pid)], { timeout: 2000 }, (err, out) => {
+        const m = err ? null : /^\s*(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)\s*$/.exec(out)
+        if (!m) return done(undefined)
+        const [d, h, min, s] = [m[1], m[2], m[3], m[4]].map((x) => Number(x ?? 0)) as [number, number, number, number]
+        done(Date.now() - (((d * 24 + h) * 60 + min) * 60 + s) * 1000)
+      })
+    })
+  },
 }
 
 /** The claim files of the lock at `path`, with their pids. */
@@ -41,34 +67,80 @@ export async function lockClaims(path: string): Promise<{ name: string; pid: num
   })
 }
 
+interface Live {
+  name: string
+  pid: number
+  at: number
+}
+
+const before = (a: Live, b: Live) => a.at < b.at || (a.at === b.at && a.name < b.name)
+
+interface Attempt {
+  pid: number
+  until: number
+  probe: ProcessProbe
+  /** Claims already found to be no recycled pid's, so ps runs once per claim per acquire. */
+  checked: Set<string>
+}
+
 /**
- * One try. Returns the release function, or a description of who holds the lock. With other live claims present the
- * claim is withdrawn; when they all arrived at the same moment, the lowest name stays a little and looks again while
- * the others withdraw, so one of them gets the lock. Only a listing with no other live claim means held.
+ * The other live claims, with their creation times; dead ones are removed by name. Every doubt (no ps, a failed stat)
+ * counts as live: calling a live claim dead would let two processes hold the lock.
  */
-async function tryAcquire(path: string, pid: number): Promise<(() => Promise<void>) | string> {
+async function liveClaims(path: string, mine: string, a: Attempt): Promise<Live[]> {
   const dir = dirname(path)
-  const mine = `${basename(path)}.${pid}.${randomUUID()}`
-  const release = () => rm(join(dir, mine), { force: true })
+  const live: Live[] = []
+  for (const c of await lockClaims(path)) {
+    if (c.name === mine) continue
+    let dead = !a.probe.alive(c.pid)
+    let at = Number.NEGATIVE_INFINITY
+    if (!dead) {
+      const s = await stat(join(dir, c.name)).catch((e: NodeJS.ErrnoException) => (e.code === 'ENOENT' ? null : undefined))
+      if (s === null) continue // withdrawn meanwhile
+      if (s) at = s.mtimeMs
+      if (s && !a.checked.has(c.name) && Date.now() - at >= REUSE_AGE_MS) {
+        const started = await a.probe.startedAt(c.pid)
+        dead = started !== undefined && started > at + START_SLACK_MS
+        if (!dead) a.checked.add(c.name)
+      }
+    }
+    if (dead) await rm(join(dir, c.name), { force: true })
+    else live.push({ ...c, at })
+  }
+  return live
+}
+
+/**
+ * One claim. Returns the release function, or a description of who holds the lock. Only a listing with no other live
+ * claim means held. While other live claims are there, the claim first in line looks again until `until`; any other
+ * withdraws at once.
+ */
+async function tryAcquire(path: string, a: Attempt): Promise<(() => Promise<void>) | string> {
+  const dir = dirname(path)
+  const name = `${basename(path)}.${a.pid}.${randomUUID()}`
+  const release = () => rm(join(dir, name), { force: true })
+  let mine: Live
   try {
-    await writeFile(join(dir, mine), `${pid}\n`, { flag: 'wx' })
+    // Created empty and never written, so every observer reads the same mtime for it.
+    const fh = await open(join(dir, name), 'wx')
+    try {
+      mine = { name, pid: a.pid, at: (await fh.stat()).mtimeMs }
+    } finally {
+      await fh.close()
+    }
   } catch (e) {
-    // A claim created but not fully written (ENOSPC) must not stay behind and block every later run.
+    // A claim that failed half way must not stay behind and block every later run.
     await release().catch(() => {})
     throw e
   }
   try {
-    for (let attempt = 0; ; attempt++) {
-      const others: { name: string; pid: number }[] = []
-      for (const c of await lockClaims(path)) {
-        if (c.name === mine) continue
-        if (alive(c.pid)) others.push(c)
-        else await rm(join(dir, c.name), { force: true })
-      }
+    for (;;) {
+      const others = await liveClaims(path, name, a)
       if (others.length === 0) return release
-      if (attempt >= SETTLE_TRIES || others.some((c) => c.name < mine)) {
+      const first = others.reduce((x, y) => (before(y, x) ? y : x))
+      if (before(first, mine) || Date.now() >= a.until) {
         await release()
-        return `pid ${others[0]!.pid}`
+        return `pid ${first.pid}`
       }
       await new Promise((done) => setTimeout(done, SETTLE_MS))
     }
@@ -78,36 +150,40 @@ async function tryAcquire(path: string, pid: number): Promise<(() => Promise<voi
   }
 }
 
-/** Takes the lock or throws LockedError; the returned function releases it. */
-export async function acquireLock(path: string, pid = process.pid): Promise<() => Promise<void>> {
+export interface LockOptions {
+  /** How long to keep trying before throwing LockedError. */
+  waitMs?: number
+  /** The mean pause between tries; each pause is jittered. */
+  pollMs?: number
+  probe?: ProcessProbe
+}
+
+async function acquire(path: string, pid: number, waitMs: number, options: LockOptions) {
+  const pollMs = options.pollMs ?? 25
   await mkdir(dirname(path), { recursive: true })
-  const r = await tryAcquire(path, pid)
+  const a: Attempt = { pid, until: Date.now() + waitMs, probe: options.probe ?? systemProbe, checked: new Set() }
+  for (;;) {
+    const r = await tryAcquire(path, a)
+    if (typeof r === 'function' || Date.now() >= a.until) return r
+    await new Promise((done) => setTimeout(done, pollMs * (0.5 + Math.random())))
+  }
+}
+
+/** Takes the lock, trying for up to `waitMs` (default 1 s), or throws LockedError; the returned function releases it. */
+export async function acquireLock(path: string, pid = process.pid, options: LockOptions = {}): Promise<() => Promise<void>> {
+  const r = await acquire(path, pid, options.waitMs ?? 1000, options)
   if (typeof r === 'function') return r
   throw new LockedError(`another starsieve run (${r}) holds ${path}; only one run at a time`)
 }
 
-export interface WithLockOptions {
-  /** How long to wait for the lock before throwing LockedError. */
-  waitMs?: number
-  pollMs?: number
-}
-
-/** Runs `fn` holding the lock at `path`, waiting up to `waitMs` for it. Not reentrant: never nest two on one path. */
-export async function withLock<T>(path: string, fn: () => Promise<T>, options: WithLockOptions = {}): Promise<T> {
+/** Runs `fn` holding the lock at `path`, waiting up to `waitMs` (default 30 s) for it. Not reentrant: never nest two on one path. */
+export async function withLock<T>(path: string, fn: () => Promise<T>, options: LockOptions = {}): Promise<T> {
   const waitMs = options.waitMs ?? 30_000
-  const pollMs = options.pollMs ?? 25
-  await mkdir(dirname(path), { recursive: true })
-  const until = Date.now() + waitMs
-  for (;;) {
-    const r = await tryAcquire(path, process.pid)
-    if (typeof r === 'function') {
-      try {
-        return await fn()
-      } finally {
-        await r()
-      }
-    }
-    if (Date.now() >= until) throw new LockedError(`${path} is held by ${r} for over ${Math.round(waitMs / 1000)} s; try again`)
-    await new Promise((done) => setTimeout(done, pollMs))
+  const r = await acquire(path, process.pid, waitMs, options)
+  if (typeof r !== 'function') throw new LockedError(`${path} is held by ${r} for over ${Math.round(waitMs / 1000)} s; try again`)
+  try {
+    return await fn()
+  } finally {
+    await r()
   }
 }
