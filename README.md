@@ -247,6 +247,12 @@ One page renders both (`src/panel`). The Panel is the Local Tools Portal's `kind
 
 After a failure, the public clone goes back to the branch it was on. Of the run's own uncommitted files, only those still holding exactly what the run wrote are undone; commits stay on the day branch. Any other change in the clone (an edit the owner made meanwhile, even to a file the run wrote) is kept, and the step `restore-public` fails listing it; when a kept change stops git from switching back, the clone stays on the day branch.
 
+Known limits (accepted; the public clone is generated and not meant to be edited by hand):
+
+- Rollback checks each file right before restoring it, but another process saving that file, or staging it, in the instant between that check and the write can still lose that save. Git has no compare-and-swap on the working tree to close it.
+- A lock claim whose pid is reused by a long-lived process within about 2 s of the claim is not recognised as dead (`ps` reports start times in whole seconds), so writers wait and fail with `LockedError` until that process exits; remove the stale `<lock>.<pid>.<uuid>` file by hand.
+- A file in the public clone that became a symbolic link is never rolled back; it is listed as kept.
+
 ## GitHub Lists
 
 `lists sync` reads every list and its members with `gh api graphql` (`viewer.lists`, all pages; any failed read stops before a write), takes the GitHub Items on the public repository's main that the store still says are public, and adds each to the list named after its Category. Missing lists are created with `createUserList` for Categories that have GitHub Items; past 32 lists it stops with an error before writing. `updateUserListsForItem` replaces a repository's whole membership, so it is always sent the lists the repository is in now plus the Category's list: nothing is ever removed. The lists are read again right before each mutation request (up to 20 repositories), and the membership comes from that read, so a list the owner added a repository to after planning is kept. This narrows the window to one request; it does not close it. `--dry-run` prints the plan.
