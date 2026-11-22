@@ -4,7 +4,105 @@ Sorts the repositories you starred on GitHub and the technical posts you liked o
 
 Built so far: collect (GitHub stars, X likes and bookmarks), Backfill, classify, apply, override (and unskip), publish, check, the Portal Panel, the public site build, the daily `run` (git commit and push, PR with auto-merge, Heartbeat), GitHub Lists sync, the data repositories' CI templates and the LaunchAgent.
 
-Requires Node 22.18+ (runs the TypeScript sources directly), `gh` logged in, an agent CLI (default `cursor-agent`), and for X the `ego-browser` CLI with its `Default` profile logged in to x.com. The Local Tools Portal is optional: only the Panel needs it; `site build` and `run` work without it.
+## Requirements
+
+- macOS. `schedule` installs a LaunchAgent, and logs and saved Classifier output go to `~/Library/Logs/starsieve/`.
+- Node 22.18+ (runs the TypeScript sources directly) and pnpm.
+- `gh` logged in (`gh auth login`) as the owner of both data repositories. Its default `repo` scope covers reading your stars (`gh api user/starred`, also those of private repositories), pushing, and the daily PR (`gh pr create`, `gh pr merge --auto`). `run` also syncs GitHub Lists (`gh api graphql`: `viewer.lists`, `createUserList`, `updateUserListsForItem`), which needs the `user` scope: `gh auth refresh -s user`. Pushing the `.github/workflows/` files that `init data` writes needs the `workflow` scope when git uses `gh` for HTTPS: `gh auth refresh -s workflow`. The commands `init github --dry-run` prints change repository settings, so they need admin rights on the public repository.
+- An agent CLI as the Classifier; the default is `cursor-agent` (see [Classifier](#classifier) before using another one).
+- For X (optional): the `ego-browser` CLI with its `Default` profile logged in to x.com. Without it, set `"collectX": false` in the user config, and `run` skips X.
+- The Local Tools Portal (optional): only the Panel needs it; `site build` and `run` work without it.
+
+The default Category Table (`categories init`) and the published README are in Chinese. Replace the table with `categories set --file`; the README's fixed text is Chinese only, and `readme.title` sets its title.
+
+## Quick start
+
+`<owner>` is your GitHub login; `stars-private` and `stars` are example names.
+
+1. Clone this repository and install:
+
+   ```sh
+   git clone https://github.com/Adonis0123/starsieve && cd starsieve
+   pnpm install
+   ```
+
+2. Create a private repository for the Private Store and a public one for the catalog, each with a first commit on `main`, and clone both:
+
+   ```sh
+   gh repo create <owner>/stars-private --private --add-readme
+   gh repo create <owner>/stars --public --add-readme
+   gh repo clone <owner>/stars-private ~/stars-private
+   gh repo clone <owner>/stars ~/stars
+   ```
+
+3. Write the CI files into both clones (the store is the private clone itself; `--store <dir>` names a folder inside it), then commit and push them yourself:
+
+   ```sh
+   pnpm starsieve init data --private ~/stars-private --public ~/stars
+   git -C ~/stars-private add .github && git -C ~/stars-private commit -m "add heartbeat check" && git -C ~/stars-private push
+   git -C ~/stars add .github && git -C ~/stars commit -m "add data check" && git -C ~/stars push
+   ```
+
+4. Fill the store and classify one Batch (`run` classifies the rest):
+
+   ```sh
+   pnpm starsieve categories init --store ~/stars-private
+   pnpm starsieve collect github --store ~/stars-private
+   pnpm starsieve classify --store ~/stars-private --limit 25
+   ```
+
+5. Look at what would be public, in a scratch folder (`run` writes the real files into the public clone):
+
+   ```sh
+   pnpm starsieve publish --store ~/stars-private --out /tmp/starsieve-preview
+   pnpm starsieve site build --store ~/stars-private --out /tmp/starsieve-preview/site
+   ```
+
+6. Write `~/.config/starsieve/config.json` (see [Configuration](#configuration)); `run` needs at least `storePath`, `publicRepoPath` and `publicRepo`, and `"collectX": false` without ego-browser.
+
+7. `pnpm starsieve run --dry-run` prints the plan; `pnpm starsieve run --no-push` runs everything but only commits locally.
+
+8. `pnpm starsieve init github --dry-run` prints the `gh api` commands that turn on auto-merge, protect main with the `check` job and serve Pages from `/docs`; run them yourself.
+
+9. `pnpm starsieve schedule install` runs `run` daily at 08:17. It passes `--no-push` until `schedulePush` is `true`.
+
+## Configuration
+
+There are two config files:
+
+- `~/.config/starsieve/config.json` (`$XDG_CONFIG_HOME/starsieve/config.json` when that is set) holds this machine's settings and stays out of every repository. Every key is optional; `~/` and relative paths (relative to the file's folder) are expanded. All keys:
+
+  ```json
+  {
+    "storePath": "~/stars-private",
+    "publicRepoPath": "~/stars",
+    "publicRepo": "<owner>/stars",
+    "siteUrl": "https://<owner>.github.io/stars/",
+    "readme": { "title": "技术收藏" },
+    "portalCss": "~/path/to/local-tools.css",
+    "collectX": true,
+    "schedulePush": false,
+    "scheduleMaxBatches": 4,
+    "mergeTimeoutMs": 1200000
+  }
+  ```
+
+  | Key | Default | Meaning |
+  | --- | --- | --- |
+  | `storePath` | none | The Private Store: `--store` of `run` and `lists sync`, and the store the Panel shows. Other commands take `--store`. |
+  | `publicRepoPath` | none | The public repository's local clone: `--public` of `run` and `lists sync`. |
+  | `publicRepo` | none | Its `owner/name`, for `gh` (the PR, `init github`) and the check that the store never pushes to it. |
+  | `siteUrl` | none | The public site, linked from the README; never guessed from `publicRepo`. |
+  | `readme.title` | 技术收藏 | The published README's title. |
+  | `portalCss` | none | The Portal's `local-tools.css`, inlined by `site build` instead of `src/site/default.css`. |
+  | `collectX` | `true` | `false`: `run` skips `collect-x` (the step shows as `skipped`); X Items already in the store are still published. |
+  | `schedulePush` | `false` | `true`: the LaunchAgent's `run` pushes; otherwise it carries `--no-push`. |
+  | `scheduleMaxBatches` | none | The LaunchAgent's `run --max-batches`. |
+  | `mergeTimeoutMs` | 1200000 (20 min) | How long `run` waits for the public PR to merge. |
+
+  `schedulePush` and `scheduleMaxBatches` are written into the plist, so run `schedule install` again after changing them.
+
+- The store's own `config.json`, inside the Private Store and committed with it, sets only the Classifier: `{schemaVersion, classifier: {command, timeoutMs}}` (see [Classifier](#classifier)).
 
 ## Commands
 
@@ -44,7 +142,7 @@ The store is a plain directory meant to live in a private git repository. Every 
 | `backfill.json` | `{schemaVersion, x: {like, bookmark}}`; the last Backfill reach per list: `startedAt`, `updatedAt`, `scrolls`, `seen`, `added`, `earliestPostedAt`, `reachedEnd`, `finished`. |
 | `classifications.json` | `{schemaVersion, classifications}`; a map from Item id to its Classification: `category`, `tags`, `summary`, `visibility`, `needsReview`, `locked`, `by` (`classifier`, `owner`, or `collector` for a private repository's star), `inputHash`. |
 | `categories.json` | The Category Table: `{schemaVersion, categories: [{name, description}]}`. Its order is the order of sections in the published README. `categories init` writes the default table only when there is none; `categories set --file` replaces it after checking it (`schemaVersion` 1, unique non-empty names, `未分类` present, at most 32 Categories, the GitHub Lists limit). With `--reclassify` it also deletes every unlocked `classifier` Classification, so those Items are pending again; Locked and `collector` Classifications and Skipped Items stay, and Locked ones whose Category left the table are listed as `staleLocked` for `override`. |
-| `config.json` | Optional. `{schemaVersion, classifier: {command, timeoutMs}}`. |
+| `config.json` | Optional. `{schemaVersion, classifier: {command, timeoutMs}}`: the Classifier only; machine settings live in `~/.config/starsieve/config.json` (see [Configuration](#configuration)). |
 | `publish-state.json` | Written by `publish` (not by `--dry-run`): the hash of the last Public Projection and its `contentHash` (without star counts), used by `check`. |
 | `owner-kept.json` | `{schemaVersion, kept}`: X posts the owner took back with `override --unskip`, by id. `apply` never skips them again. |
 | `heartbeat.json` | Written by `run`: `lastAttemptAt`, `lastSuccessAt`, `result`, `nothingNew` and each step's result. |
@@ -100,11 +198,13 @@ The default command, overridable in `config.json`:
 
 `{prompt}`, `{workspace}` and `{store}` are replaced in each argument. Without `{prompt}` the prompt goes to stdin. The command runs with the temporary workspace as its working directory, so use absolute paths for scripts.
 
+The sandbox comes from cursor-agent itself: it reads the workspace's `.cursor/cli.json`, and starsieve only writes that file. Another agent CLI ignores it, so before you put one in `command`, give it its own mode with no tools (no shell, no file reads or writes) through its flags or config; starsieve cannot check that it has one. `grok-4.7-medium` is only the default model: `command` in the store's `config.json` replaces the whole default command, model included.
+
 ## Publish
 
 `publish` writes `items.json` and a `README.md` catalog to `--out`, grouped by Category in table order, newest star (or post) first. An Item is included only when it has a Classification whose Visibility is `public`, and for a star only when its repository is public (`repoPrivate` is `false`); an owner override cannot make a private repository's star public. A GitHub Item also carries `stargazers`; every Item carries `needsReview` and `addedAt` (star time; for X, when starsieve first saw it). An X Item is published as `url`, `author`, `postedAt`, `addedAt`, `category`, `tags`, `summary` and `needsReview` only, never its text; Skipped Items are never published. Only allowlisted fields are written and there are no run timestamps, so publishing twice gives identical files. Star counts change daily, so they alone never count as something new to publish (`contentHash` leaves them out); they are refreshed whenever something else is published. `--dry-run` prints the number of public Items and the difference from what `--out` holds, and writes nothing.
 
-The README is in Chinese: the title, the counts, a link to the online catalog, a contents list with each Category's count, then one section per Category with a link back to the contents. Each Item is one line, `[owner/repo](url) — Summary · language · Tags` (at most 3 Tags, the first kept; the language is not repeated as a Tag), or `X · [@author](url) — …` for a post. It shows no star counts, so a day where only star counts moved leaves it unchanged. Two optional keys in `~/.config/starsieve/config.json` set it, and `publish` and `run` both read them:
+The README is in Chinese: the title, the counts, a link to the online catalog, a contents list with each Category's count, then one section per Category with a link back to the contents. Each Item is one list entry: `[owner/repo](url) — Summary<br><sub>language · Tags</sub>` (the Summary without a final full stop; at most 3 Tags, the first kept; the language is left out when the first Tag already names it), or `X · [@author](url) — Summary<br><sub>Tags</sub>` for a post. Without a Summary the dash is left out, and without language and Tags the second line is. It shows no star counts, so a day where only star counts moved leaves it unchanged. Two optional keys in `~/.config/starsieve/config.json` set it, and `publish` and `run` both read them:
 
 ```json
 { "readme": { "title": "技术收藏" }, "siteUrl": "https://<owner>.github.io/<repo>/" }
@@ -117,7 +217,7 @@ The README is in Chinese: the title, the counts, a link to the online catalog, a
 One page renders both (`src/panel`). The Panel is the Local Tools Portal's `kind: "panel"` entry: `src/panel/index.ts` exports `createPanelHandler({ basePath, allowedHosts, theme, readOnly, lang })`, and `/api/health` answers `{ app: "starsieve", version }`. It shows every Item of the store named by `storePath` in `~/.config/starsieve/config.json`, with filters by Source, Category and Tag, search, and sorting by recently added or by stars. Edits call the same functions as `starsieve override` and `override --unskip` (the "Skipped" tab); `readOnly` hides them and refuses every write. Writes also need the page's Origin and its per-instance token.
 
 ```json
-{ "storePath": "~/path/to/stars-private", "portalCss": "~/path/to/skills-manager/web/shared/local-tools.css" }
+{ "storePath": "~/path/to/stars-private", "portalCss": "~/path/to/local-tools.css" }
 ```
 
 `portalCss` is optional; see `site build` below.
@@ -129,7 +229,7 @@ One page renders both (`src/panel`). The Panel is the Local Tools Portal's `kind
 `run` is the whole pipeline, one step after another; each step's result goes into `heartbeat.json` and the log `~/Library/Logs/starsieve/run-YYYYMMDD.log`. Only one run at a time (the lock `run.lock` next to the logs, taken the same way as the store lock below, trying for up to 1 s: a run whose process is gone is taken over). `--store` and `--public` default to `storePath` and `publicRepoPath` in `~/.config/starsieve/config.json`.
 
 1. `check`: the store, the private repository it lives in and the public clone. The store must not be inside the public clone, its repository must not be the public clone's, and none of its `origin` URLs, fetch or push (`pushurl` included), may be the public repository (the same URL as one of the public clone's `origin` URLs, or the `publicRepo` slug, in any letter case). The store's JSON must also pass `check`. When anything in this step fails, the run stops and nothing in the store is committed or pushed: the Heartbeat is only written to the store, or not written at all when the store is inside the public clone (any file there could end up in a public commit).
-2. `collect-github`, `collect-x`: a failure (also a logged-out X) fails the run, but the run goes on and that Source is not published: its public Items stay as the public branch has them, except those the store no longer has as public (made private, skipped, gone), which are removed.
+2. `collect-github`, `collect-x`: a failure (also a logged-out X) fails the run, but the run goes on and that Source is not published: its public Items stay as the public branch has them, except those the store no longer has as public (made private, skipped, gone), which are removed. With `"collectX": false` in the config, `collect-x` is `skipped` and X is not collected.
 3. `classify`: Batches of 25 until nothing is pending or `--max-batches` (`0`: classify nothing).
 4. `publish`, `site`: on branch `starsieve/YYYYMMDD` of the public clone (an open starsieve PR's branch, or an unpushed local branch, is reused), `data/items.json`, `README.md` and `docs/index.html`. Nothing is written when only star counts changed.
 5. `private`: commits the store (the Heartbeat is committed at the end) and pushes.
