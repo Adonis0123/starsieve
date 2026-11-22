@@ -372,6 +372,7 @@ export async function main(argv: string[], options: MainOptions = {}): Promise<n
             prDryRun: parsed.flags.get('pr-dry-run') === true,
             dryRun: parsed.flags.get('dry-run') === true,
             maxBatches,
+            collectX: c.collectX,
             css: c.portalCss,
             readme: readmeOf(c),
             mergeTimeoutMs: c.mergeTimeoutMs,

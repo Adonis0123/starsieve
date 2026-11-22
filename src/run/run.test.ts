@@ -209,6 +209,40 @@ describe('run', () => {
     })
   })
 
+  it('collectX false: the collect-x step is skipped, never calls X, and the run succeeds', async () => {
+    await withDir(async (dir) => {
+      const repos = await makeRepos(dir, STARS)
+      let called = false
+      const { options } = setup(repos, { collectX: false }, {
+        collectX: async () => {
+          called = true
+          throw new LoggedOutError('X is logged out: https://x.com/i/jf/onboarding')
+        },
+      })
+      const r = await run(options)
+      assert.equal(r.ok, true, JSON.stringify(r.steps, null, 2))
+      assert.equal(called, false)
+      assert.equal(status(r)['collect-x'], 'skipped')
+      assert.match(r.steps.find((s) => s.name === 'collect-x')!.detail!, /collectX is false/)
+      assert.deepEqual(r.held, [])
+      assert.equal((await loadHeartbeat(repos.store))!.result, 'success')
+      const plan = await run({ ...options, dryRun: true })
+      assert.match(plan.steps.find((s) => s.name === 'collect-x')!.detail!, /collectX is false/)
+    })
+  })
+
+  it('collectX left out: X is collected as before', async () => {
+    await withDir(async (dir) => {
+      const repos = await makeRepos(dir, STARS)
+      let called = 0
+      const { options } = setup(repos, {}, { collectX: async () => (called++, []) })
+      const r = await run(options)
+      assert.equal(r.ok, true)
+      assert.equal(called, 1)
+      assert.equal(status(r)['collect-x'], 'ok')
+    })
+  })
+
   it('a failed GitHub collection keeps the public GitHub Items as they were', async () => {
     await withDir(async (dir) => {
       const repos = await makeRepos(dir, STARS)

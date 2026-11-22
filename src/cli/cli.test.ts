@@ -254,6 +254,24 @@ describe('cli: run, lists sync, init, schedule', () => {
     })
   })
 
+  it('run reads collectX from the config: false skips X, so a logged-out X no longer fails the run', async () => {
+    const { makeRepos, fakeGh } = await import('../testing/repos.ts')
+    await withDir(async (dir) => {
+      const repos = await makeRepos(dir, STARS)
+      const configPath = join(dir, 'config.json')
+      await writeFile(configPath, JSON.stringify({ storePath: repos.store, publicRepoPath: repos.pub, publicRepo: 'o/stars', collectX: false }))
+      let out = ''
+      const collectX = async (): Promise<never> => {
+        throw new Error('X is logged out')
+      }
+      const io = { out: (s: string) => (out += `${s}\n`), err: () => {} }
+      const code = await main(['run', '--no-push', '--json'], { io, configPath, logDir: join(dir, 'logs'), fetchStars: async () => STARS, runDeps: { gh: fakeGh().exec, collectX } })
+      const r = JSON.parse(out) as { ok: boolean; steps: { name: string; status: string }[] }
+      assert.equal(code, 0, out)
+      assert.equal(r.steps.find((s) => s.name === 'collect-x')!.status, 'skipped')
+    })
+  })
+
   it('schedule install writes --no-push while schedulePush is false', async () => {
     await withDir(async (dir) => {
       const configPath = join(dir, 'config.json')

@@ -26,4 +26,17 @@ describe('user config', () => {
       }
     })
   })
+
+  it('reads collectX as a boolean and rejects anything else', async () => {
+    await withDir(async (dir) => {
+      const path = join(dir, 'config.json')
+      const load = async (doc: unknown) => {
+        await writeFile(path, JSON.stringify(doc))
+        return loadUserConfig(path)
+      }
+      assert.deepEqual(await load({ collectX: false }), { collectX: false })
+      assert.deepEqual(await load({}), {})
+      for (const bad of ['false', 0, null]) await assert.rejects(load({ collectX: bad }), /collectX/)
+    })
+  })
 })

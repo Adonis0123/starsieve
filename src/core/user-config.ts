@@ -4,7 +4,8 @@
 // `run` publishes into; `publicRepo`: its `owner/name` for `gh`. `schedulePush`: whether the LaunchAgent's run pushes (false: `--no-push`). `scheduleMaxBatches`: the
 // LaunchAgent's `--max-batches`. `mergeTimeoutMs`: how long `run` waits for the public PR to merge. `readme.title`: the
 // public README's title. `siteUrl`: the public site, linked from the README (never derived from `publicRepo`: the
-// repository name does not prove Pages is on, nor give a custom domain).
+// repository name does not prove Pages is on, nor give a custom domain). `collectX`: whether `run` collects X likes and
+// bookmarks (default true; false skips the step, for a machine without ego-browser or an X login).
 import { homedir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { readJson } from './json.ts'
@@ -15,6 +16,7 @@ export interface UserConfig {
   publicRepoPath?: string
   publicRepo?: string
   schedulePush?: boolean
+  collectX?: boolean
   scheduleMaxBatches?: number
   mergeTimeoutMs?: number
   readme?: { title?: string }
@@ -58,9 +60,11 @@ export async function loadUserConfig(path: string): Promise<UserConfig | undefin
     }
     out.publicRepo = doc.publicRepo
   }
-  if (doc.schedulePush !== undefined) {
-    if (typeof doc.schedulePush !== 'boolean') throw new UserConfigError(`${path}: schedulePush must be true or false`)
-    out.schedulePush = doc.schedulePush
+  for (const key of ['schedulePush', 'collectX'] as const) {
+    const v = doc[key]
+    if (v === undefined) continue
+    if (typeof v !== 'boolean') throw new UserConfigError(`${path}: ${key} must be true or false`)
+    out[key] = v
   }
   for (const key of ['scheduleMaxBatches', 'mergeTimeoutMs'] as const) {
     const v = doc[key]

@@ -60,6 +60,8 @@ export interface RunOptions {
   /** Print what would run; write nothing. */
   dryRun?: boolean
   maxBatches?: number
+  /** false: skip the collect-x step (config `collectX`); X Items already in the store are still published. */
+  collectX?: boolean
   /** The Portal's local-tools.css, inlined by site build; without it, the site's default stylesheet. */
   css?: string
   /** README title and site link, from the user config. */
@@ -92,6 +94,7 @@ export interface RunReport {
   printed: string[]
 }
 
+const X_OFF = 'collectX is false in the config: X is not collected'
 const DEFAULT_MERGE_TIMEOUT_MS = 20 * 60 * 1000
 const DEFAULT_POLL_MS = 30 * 1000
 
@@ -205,7 +208,7 @@ export async function run(options: RunOptions): Promise<RunReport> {
     const planned = (name: string, detail: string) => report.steps.push({ name, status: 'dry-run', ms: 0, detail })
     planned('check', `${k.items} Items, ${k.pendingClassification} to classify, ${k.pendingPublish ? 'Public Projection changed' : 'nothing new to publish'}`)
     planned('collect-github', 'gh api user/starred')
-    planned('collect-x', 'ego-browser, profile Default: likes and bookmarks')
+    planned('collect-x', options.collectX === false ? X_OFF : 'ego-browser, profile Default: likes and bookmarks')
     const batches = Math.ceil(k.pendingClassification / BATCH_SIZE)
     planned('classify', `${options.maxBatches !== undefined ? Math.min(batches, options.maxBatches) : batches} Batches of ${BATCH_SIZE} (plus whatever collection adds)`)
     planned('publish', `data/items.json and README.md into ${pub}, on branch ${BRANCH_PREFIX}${day}`)
@@ -301,6 +304,7 @@ export async function run(options: RunOptions): Promise<RunReport> {
     await step(
       'collect-x',
       async () => {
+        if (options.collectX === false) return { status: 'skipped', detail: X_OFF }
         try {
           const lists = await deps.collectX(store)
           const added = lists.reduce((n, l) => n + l.added, 0)
