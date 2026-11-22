@@ -25,9 +25,8 @@ import {
   BRANCH_PREFIX,
   baseRef,
   type BranchChoice,
+  blobHash,
   differsFromBase,
-  hashFiles,
-  ITEMS_FILE,
   needsPush,
   PUBLIC_PATHS,
   pushedBefore,
@@ -38,9 +37,6 @@ import {
 } from './public-repo.ts'
 
 export const BATCH_SIZE = 25
-/** The page site build writes into the public clone. */
-const SITE_FILE = 'docs/index.html'
-
 export interface RunDeps {
   collectGithub: (store: string) => Promise<GithubCollectResult>
   collectX: (store: string) => Promise<ListResult[]>
@@ -348,11 +344,9 @@ export async function run(options: RunOptions): Promise<RunReport> {
     let changed = false
     let openPr: { url: string; branch: string } | undefined
     let doc: Awaited<ReturnType<typeof buildProjection>> | undefined
-    /** Each file this run wrote into the public clone → the git blob hash of what it wrote. */
+    /** Each file this run wrote into the public clone → the git blob id of the bytes it wrote; set once written. */
     const written = new Map<string, string>()
-    const recordWritten = async (paths: readonly string[]) => {
-      for (const [p, h] of await hashFiles(pub, paths)) written.set(p, h)
-    }
+    const onWrite = (path: string, text: string) => written.set(relative(pub, path), blobHash(text))
     try {
       await step('publish', async () => {
         await assertClean(pub)
@@ -371,14 +365,14 @@ export async function run(options: RunOptions): Promise<RunReport> {
         if (!changed) {
           return `${doc.items.length} public Items; nothing new beyond star counts on ${choice.branch}${choice.reused ? ' (reused)' : ''}`
         }
-        const r = await publish(store, pub, false, { layout: 'repo', doc, readme: options.readme }).finally(() => recordWritten([ITEMS_FILE, 'README.md']))
+        const r = await publish(store, pub, false, { layout: 'repo', doc, readme: options.readme, onWrite })
         const held = report.held.length ? `; held as before: ${report.held.join(', ')}` : ''
         return `${r.publicItems} public Items on ${choice.branch} (+${r.added.length} -${r.removed.length} ~${r.changed.length})${held}`
       })
 
       await step('site', async () => {
         if (!changed || !doc) return { status: 'skipped', detail: 'nothing new to publish' }
-        const r = await buildSite(store, join(pub, 'docs'), { css: options.css ?? DEFAULT_CSS, doc }).finally(() => recordWritten([SITE_FILE]))
+        const r = await buildSite(store, join(pub, 'docs'), { css: options.css ?? DEFAULT_CSS, doc, onWrite })
         return `${r.path}: ${r.publicItems} public Items`
       })
 
@@ -648,7 +642,7 @@ async function restorePublic(
     if (failed) {
       const { kept } = await rollbackWrites(pub, written)
       if (kept.length) {
-        const msg = `not rolled back, changes this run did not make are kept in ${pub}: ${kept.join(', ')}`
+        const msg = `not rolled back, changes this run did not make are kept in ${pub}: ${kept.map((k) => `${k.path} (${k.reason})`).join(', ')}`
         left.push(msg)
         line(`public clone: ${msg}`)
       }

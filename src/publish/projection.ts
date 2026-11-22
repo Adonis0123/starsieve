@@ -284,6 +284,8 @@ export interface PublishOptions {
   doc?: PublicDoc
   /** README title and site link, from the user config. */
   readme?: Pick<ReadmeOptions, 'title' | 'siteUrl'>
+  /** Called after each file is written, with what was written (run records it to undo it after a failure). */
+  onWrite?: (path: string, text: string) => void
 }
 
 export function publicPaths(outDir: string, layout: 'flat' | 'repo' = 'flat'): { items: string; readme: string } {
@@ -319,7 +321,9 @@ export async function publish(storeDir: string, outDir: string, dryRun: boolean,
 
   if (!dryRun) {
     await writeText(itemsPath, itemsText)
+    options.onWrite?.(itemsPath, itemsText)
     await writeText(readmePath, readme)
+    options.onWrite?.(readmePath, readme)
     await savePublishState(storeDir, {
       projectionHash: projectionHash(doc),
       contentHash: contentHash(doc),

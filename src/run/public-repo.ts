@@ -1,10 +1,16 @@
 // The public repository's local clone: which branch a run publishes on, what main holds now, and pushing it.
-import { access, mkdtemp, rm, rmdir } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { mkdtemp, readFile, rm, rmdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { promisify } from 'node:util'
 import type { PublicDoc } from '../publish/projection.ts'
 import { exec, tail } from './exec.ts'
 import { git, gitOk, refExists, revParse, showFile } from './git.ts'
+
+const execFileP = promisify(execFile)
 
 export const BRANCH_PREFIX = 'starsieve/'
 export const ITEMS_FILE = 'data/items.json'
@@ -152,17 +158,10 @@ export async function squashUnpushed(repo: string, branch: string, base: string,
   return next
 }
 
-/** The git blob hash of each of `paths` (relative to the repository) that exists as a file; missing ones are left out. */
-export async function hashFiles(repo: string, paths: readonly string[]): Promise<Map<string, string>> {
-  const present: string[] = []
-  for (const p of paths) {
-    if (await access(join(repo, p)).then(() => true, () => false)) present.push(p)
-  }
-  const hashes = new Map<string, string>()
-  if (!present.length) return hashes
-  const out = (await git(repo, ['hash-object', '--', ...present])).trim().split('\n')
-  present.forEach((p, i) => hashes.set(p, out[i]!))
-  return hashes
+/** The id git gives these bytes as a blob (what `git hash-object` prints for them when no filter applies). */
+export function blobHash(bytes: string | Uint8Array): string {
+  const buf = typeof bytes === 'string' ? Buffer.from(bytes) : bytes
+  return createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex')
 }
 
 /** Every path with a change against HEAD (staged, unstaged or untracked; ignored files are not). */
@@ -171,28 +170,115 @@ async function dirtyPaths(repo: string): Promise<string[]> {
   return out.split('\0').filter(Boolean).map((e) => e.slice(3))
 }
 
+/** The file's bytes in the working tree, or undefined when it is not there. */
+async function readWorktree(repo: string, path: string): Promise<Buffer | undefined> {
+  return readFile(join(repo, path)).catch(() => undefined)
+}
+
+function readWorktreeSync(repo: string, path: string): Buffer | undefined {
+  try {
+    return readFileSync(join(repo, path))
+  } catch {
+    return undefined
+  }
+}
+
+/** The path's index entry (mode and blob id); `conflict` when it is unmerged; undefined when the index lacks it. */
+async function indexEntry(repo: string, path: string): Promise<{ mode: string; oid: string } | 'conflict' | undefined> {
+  const entries = (await git(repo, ['ls-files', '--stage', '-z', '--', `:(literal)${path}`])).split('\0').filter(Boolean)
+  if (!entries.length) return undefined
+  const [mode, oid, stage] = entries[0]!.slice(0, entries[0]!.indexOf('\t')).split(' ')
+  return entries.length > 1 || stage !== '0' ? 'conflict' : { mode: mode!, oid: oid! }
+}
+
+async function headEntry(repo: string, path: string): Promise<{ mode: string; oid: string } | undefined> {
+  const out = await git(repo, ['ls-tree', '-z', 'HEAD', '--', `:(literal)${path}`])
+  const entry = out.split('\0').find(Boolean)
+  if (!entry) return undefined
+  const [mode, , oid] = entry.slice(0, entry.indexOf('\t')).split(' ')
+  return { mode: mode!, oid: oid! }
+}
+
+/** HEAD's copy of the file as checkout would write it (smudge filters and line endings applied). */
+async function headBytes(repo: string, path: string): Promise<Buffer> {
+  const { stdout } = await execFileP('git', ['cat-file', '--filters', `HEAD:${path}`], { cwd: repo, encoding: 'buffer', maxBuffer: 1 << 30 })
+  return stdout
+}
+
+export interface KeptChange {
+  path: string
+  reason: string
+}
+
+export interface RollbackOptions {
+  /** Awaited just before a file's last check and its restore; tests use it to change the file at that moment. */
+  beforeRestore?: (path: string) => Promise<void> | void
+}
+
 /**
- * After a failed run: undoes the uncommitted writes this run made, and nothing else. A changed file goes back to HEAD
- * (or is removed when HEAD lacks it) only while its content is still exactly what the run wrote (`written`: path → blob
- * hash). Every other change, including an edit the owner made to a file the run wrote, is left as it is and returned
- * in `kept`. Commits are never undone.
+ * After a failed run: undoes the uncommitted writes this run made, and nothing else (`written`: path → blob id of the
+ * bytes the run wrote). A changed file goes back to HEAD (or is removed when HEAD lacks it) only while its working-tree
+ * bytes are still exactly what the run wrote and its index entry is HEAD's (or the run's own bytes, staged). Everything
+ * else is left as it is and returned in `kept` with the reason: an owner's edit, a file the owner staged in another
+ * version, a change the run did not make. Commits are never undone; nothing is reset or cleaned wholesale.
  */
-export async function rollbackWrites(repo: string, written: ReadonlyMap<string, string>): Promise<{ reverted: string[]; kept: string[] }> {
-  const dirty = await dirtyPaths(repo)
-  const current = await hashFiles(repo, dirty.filter((p) => written.has(p)))
-  const reverted = dirty.filter((p) => current.has(p) && current.get(p) === written.get(p))
-  const kept = dirty.filter((p) => !reverted.includes(p))
-  const inHead: string[] = []
-  const added: string[] = []
-  for (const p of reverted) (await gitOk(repo, ['cat-file', '-e', `HEAD:${p}`]) ? inHead : added).push(p)
-  if (inHead.length) await git(repo, ['checkout', '--quiet', 'HEAD', '--', ...inHead])
-  for (const p of added) {
-    await git(repo, ['rm', '--quiet', '--cached', '--ignore-unmatch', '--', p])
-    await rm(join(repo, p), { force: true })
-    // Directories the run created for the file; stops at the first one that still holds something.
-    for (let d = dirname(p); d !== '.' && d !== '/'; d = dirname(d)) {
-      if (!(await rmdir(join(repo, d)).then(() => true, () => false))) break
+export async function rollbackWrites(
+  repo: string,
+  written: ReadonlyMap<string, string>,
+  options: RollbackOptions = {},
+): Promise<{ reverted: string[]; kept: KeptChange[] }> {
+  const reverted: string[] = []
+  const kept: KeptChange[] = []
+  for (const path of await dirtyPaths(repo)) {
+    const wrote = written.get(path)
+    if (!wrote) {
+      kept.push({ path, reason: 'not written by this run' })
+      continue
     }
+    const now = await readWorktree(repo, path)
+    if (!now || blobHash(now) !== wrote) {
+      kept.push({ path, reason: 'changed after this run wrote it' })
+      continue
+    }
+    const head = await headEntry(repo, path)
+    const index = await indexEntry(repo, path)
+    const indexIsHead = index === undefined ? head === undefined : index !== 'conflict' && index.oid === head?.oid
+    const indexIsRun = index !== undefined && index !== 'conflict' && index.oid === wrote
+    if (!indexIsHead && !indexIsRun) {
+      kept.push({ path, reason: 'another version of it is staged' })
+      continue
+    }
+    const restore = head ? await headBytes(repo, path) : undefined
+    await options.beforeRestore?.(path)
+
+    // Check and write with no await in between, so nothing in this process runs between them. Left open: another
+    // process saving the file between the readFileSync below and the write or unlink, and staging it between the index
+    // check above and the index repair below; git offers no compare-and-swap on the working tree to close either.
+    const last = readWorktreeSync(repo, path)
+    if (!last || blobHash(last) !== wrote) {
+      kept.push({ path, reason: 'changed while it was being rolled back' })
+      continue
+    }
+    if (restore) writeFileSync(join(repo, path), restore)
+    else unlinkSync(join(repo, path))
+
+    if (indexIsRun && !indexIsHead) {
+      // The run staged its bytes (a commit that then failed): put HEAD's entry back, without touching the working tree.
+      const again = await indexEntry(repo, path)
+      if (again === undefined || again === 'conflict' || again.oid !== wrote) {
+        kept.push({ path, reason: 'staged again while it was being rolled back' })
+        continue
+      }
+      if (head) await git(repo, ['update-index', '--cacheinfo', `${head.mode},${head.oid},${path}`])
+      else await git(repo, ['update-index', '--force-remove', '--', path])
+    }
+    if (!head) {
+      // Directories the run created for the file; stops at the first one that still holds something.
+      for (let d = dirname(path); d !== '.' && d !== '/'; d = dirname(d)) {
+        if (!(await rmdir(join(repo, d)).then(() => true, () => false))) break
+      }
+    }
+    reverted.push(path)
   }
   return { reverted, kept }
 }

@@ -1,6 +1,7 @@
 // run: the step order, the Heartbeat, the nothing-new path, failures, and git against local bare remotes.
 import assert from 'node:assert/strict'
-import { readFile, stat, writeFile } from 'node:fs/promises'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { collectGithub } from '../collect/github.ts'
@@ -10,7 +11,7 @@ import { star, withDir } from '../testing/fixtures.ts'
 import { fakeGh, gitIn, makeRepos, type Repos } from '../testing/repos.ts'
 import { loadHeartbeat } from './heartbeat.ts'
 import { acquireLock, LockedError } from './lock.ts'
-import { squashUnpushed } from './public-repo.ts'
+import { blobHash, rollbackWrites, squashUnpushed } from './public-repo.ts'
 import { type RunDeps, type RunOptions, run } from './run.ts'
 
 const STARS = [
@@ -544,6 +545,31 @@ describe('run', () => {
     })
   })
 
+  it('a step that fails before writing a file never claims it: an owner edit made meanwhile is kept and reported', async () => {
+    await withDir(async (dir) => {
+      const repos = await makeRepos(dir, STARS)
+      // site cannot read its stylesheet, so it fails before writing index.html; the owner saves one as it starts.
+      const { options } = setup(repos, {
+        css: join(dir, 'missing.css'),
+        echo: (line) => {
+          if (line.includes('site: start')) {
+            mkdirSync(join(repos.pub, 'docs'), { recursive: true })
+            writeFileSync(join(repos.pub, 'docs/index.html'), '<p>owner page</p>\n')
+          }
+        },
+      })
+      const r = await run(options)
+      assert.equal(status(r).site, 'failed')
+      assert.equal(await readFile(join(repos.pub, 'docs/index.html'), 'utf8'), '<p>owner page</p>\n')
+      // What publish did write is undone (main has no README.md).
+      await assert.rejects(stat(join(repos.pub, 'README.md')), /ENOENT/)
+      const restore = r.steps.find((x) => x.name === 'restore-public')
+      assert.match(restore?.error ?? '', /docs\/index\.html \(not written by this run\)/)
+      const hb = (await loadHeartbeat(repos.store))!
+      assert.match(hb.steps.find((x) => x.name === 'restore-public')?.error ?? '', /docs\/index\.html/)
+    })
+  })
+
   it("never reuses or merges another repository's PR, and merges only at the commit it pushed", async () => {
     await withDir(async (dir) => {
       const repos = await makeRepos(dir, STARS)
@@ -581,6 +607,68 @@ describe('run', () => {
       await acquireLock(lock, 999_999)
       const r = await run(setup(repos).options)
       assert.equal(r.ok, true)
+    })
+  })
+})
+
+/** A clone with README.md committed as `head\n`. */
+async function headRepo(dir: string): Promise<string> {
+  const repo = join(dir, 'clone')
+  await mkdir(repo)
+  await gitIn(repo, 'init', '--quiet', '-b', 'main')
+  await gitIn(repo, 'config', 'user.name', 'starsieve test')
+  await gitIn(repo, 'config', 'user.email', 'test@example.invalid')
+  await writeFile(join(repo, 'README.md'), 'head\n')
+  await gitIn(repo, 'add', '-A')
+  await gitIn(repo, 'commit', '--quiet', '-m', 'initial')
+  return repo
+}
+
+describe('rollbackWrites', () => {
+  it('undoes the run\'s own writes, staged or not, and leaves the clone clean', async () => {
+    await withDir(async (dir) => {
+      const repo = await headRepo(dir)
+      await writeFile(join(repo, 'README.md'), 'run\n')
+      await mkdir(join(repo, 'data'))
+      await writeFile(join(repo, 'data/items.json'), '{}\n')
+      // The run staged both (its commit then failed).
+      await gitIn(repo, 'add', '-A')
+      const written = new Map([['README.md', blobHash('run\n')], ['data/items.json', blobHash('{}\n')]])
+      const r = await rollbackWrites(repo, written)
+      assert.deepEqual([r.reverted.sort(), r.kept], [['README.md', 'data/items.json'], []])
+      assert.equal(await readFile(join(repo, 'README.md'), 'utf8'), 'head\n')
+      await assert.rejects(stat(join(repo, 'data')), /ENOENT/)
+      assert.equal((await gitIn(repo, 'status', '--porcelain', '--untracked-files=all')).trim(), '')
+    })
+  })
+
+  it('keeps a version the owner staged while the working tree still holds what the run wrote', async () => {
+    await withDir(async (dir) => {
+      const repo = await headRepo(dir)
+      await writeFile(join(repo, 'README.md'), 'owner staged\n')
+      await gitIn(repo, 'add', 'README.md')
+      await writeFile(join(repo, 'README.md'), 'run\n')
+      const r = await rollbackWrites(repo, new Map([['README.md', blobHash('run\n')]]))
+      assert.deepEqual(r.reverted, [])
+      assert.deepEqual(r.kept, [{ path: 'README.md', reason: 'another version of it is staged' }])
+      assert.equal(await gitIn(repo, 'show', ':README.md'), 'owner staged\n')
+      assert.equal(await readFile(join(repo, 'README.md'), 'utf8'), 'run\n')
+    })
+  })
+
+  it('checks each file again right before restoring or removing it, and keeps an owner save made in between', async () => {
+    await withDir(async (dir) => {
+      const repo = await headRepo(dir)
+      await writeFile(join(repo, 'README.md'), 'run\n')
+      await writeFile(join(repo, 'new.json'), 'run new\n')
+      const written = new Map([['README.md', blobHash('run\n')], ['new.json', blobHash('run new\n')]])
+      const r = await rollbackWrites(repo, written, {
+        beforeRestore: (path) => writeFile(join(repo, path), `owner ${path}\n`),
+      })
+      assert.deepEqual(r.reverted, [])
+      assert.deepEqual(r.kept.map((k) => k.reason), ['changed while it was being rolled back', 'changed while it was being rolled back'])
+      assert.equal(await readFile(join(repo, 'README.md'), 'utf8'), 'owner README.md\n')
+      assert.equal(await readFile(join(repo, 'new.json'), 'utf8'), 'owner new.json\n')
     })
   })
 })

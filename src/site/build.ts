@@ -19,6 +19,8 @@ export interface SiteOptions {
   configPath?: string
   /** The Public Projection to render, when the caller already built it (run, with a held Source); else built here. */
   doc?: PublicDoc
+  /** Called after index.html is written, with what was written. */
+  onWrite?: (path: string, text: string) => void
 }
 
 export interface SiteResult {
@@ -59,5 +61,6 @@ export async function buildSite(storeDir: string, outDir: string, options: SiteO
   })
   const path = join(outDir, 'index.html')
   await writeText(path, html)
+  options.onWrite?.(path, html)
   return { out: outDir, path, publicItems: doc.items.length, css }
 }
