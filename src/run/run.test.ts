@@ -116,6 +116,22 @@ describe('run', () => {
     })
   })
 
+  it('a new README (here its title) is published even when no Item changed', async () => {
+    await withDir(async (dir) => {
+      const repos = await makeRepos(dir, STARS)
+      await run(setup(repos).options)
+      const tipBefore = (await gitIn(repos.pub, 'rev-parse', DAY_BRANCH)).trim()
+      const r = await run(setup(repos, { readme: { title: 'Stars of o' } }).options)
+      assert.equal(r.ok, true, JSON.stringify(r.steps, null, 2))
+      assert.equal(r.nothingNew, false)
+      assert.match(r.steps.find((x) => x.name === 'publish')!.detail!, /README changed/)
+      assert.ok(r.public.commit)
+      const files = (await gitIn(repos.pub, 'diff', '--name-only', tipBefore, DAY_BRANCH)).trim().split('\n')
+      assert.deepEqual(files, ['README.md'])
+      assert.match(await gitIn(repos.pub, 'show', `${DAY_BRANCH}:README.md`), /^# Stars of o/)
+    })
+  })
+
   it('--pr-dry-run pushes both repositories to their remotes but only prints the PR and plans the Lists', async () => {
     await withDir(async (dir) => {
       const repos = await makeRepos(dir, STARS)

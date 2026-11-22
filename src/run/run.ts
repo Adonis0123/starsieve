@@ -361,13 +361,15 @@ export async function run(options: RunOptions): Promise<RunReport> {
         doc = holdSources(await buildProjection(store), previous, report.held, order)
         publicTouched = true
         await git(pub, ['checkout', '--quiet', '--no-track', '-B', choice.branch, choice.from])
-        changed = contentHash(doc) !== contentHash(previous)
+        // A new README (layout, title, site link) is something to publish too; it holds no star counts.
+        const plan = await publish(store, pub, true, { layout: 'repo', doc, readme: options.readme })
+        changed = contentHash(doc) !== contentHash(previous) || plan.readmeChanged
         if (!changed) {
           return `${doc.items.length} public Items; nothing new beyond star counts on ${choice.branch}${choice.reused ? ' (reused)' : ''}`
         }
         const r = await publish(store, pub, false, { layout: 'repo', doc, readme: options.readme, onWrite })
         const held = report.held.length ? `; held as before: ${report.held.join(', ')}` : ''
-        return `${r.publicItems} public Items on ${choice.branch} (+${r.added.length} -${r.removed.length} ~${r.changed.length})${held}`
+        return `${r.publicItems} public Items on ${choice.branch} (+${r.added.length} -${r.removed.length} ~${r.changed.length}${r.readmeChanged ? ', README changed' : ''})${held}`
       })
 
       await step('site', async () => {
