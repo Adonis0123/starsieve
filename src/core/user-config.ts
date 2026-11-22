@@ -2,7 +2,9 @@
 // `storePath`: the Private Store the Panel shows and `run` uses. `portalCss`: the Portal's local-tools.css that `site build`
 // inlines. `publicRepoPath`: the local clone of the public repository `run` publishes into; `publicRepo`: its `owner/name`
 // for `gh`. `schedulePush`: whether the LaunchAgent's run pushes (false: `--no-push`). `scheduleMaxBatches`: the
-// LaunchAgent's `--max-batches`. `mergeTimeoutMs`: how long `run` waits for the public PR to merge.
+// LaunchAgent's `--max-batches`. `mergeTimeoutMs`: how long `run` waits for the public PR to merge. `readme.title`: the
+// public README's title. `siteUrl`: the public site, linked from the README (never derived from `publicRepo`: the
+// repository name does not prove Pages is on, nor give a custom domain).
 import { homedir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { readJson } from './json.ts'
@@ -15,6 +17,8 @@ export interface UserConfig {
   schedulePush?: boolean
   scheduleMaxBatches?: number
   mergeTimeoutMs?: number
+  readme?: { title?: string }
+  siteUrl?: string
 }
 
 export function defaultUserConfigPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -63,6 +67,23 @@ export async function loadUserConfig(path: string): Promise<UserConfig | undefin
     if (v === undefined) continue
     if (typeof v !== 'number' || !Number.isInteger(v) || v < 1) throw new UserConfigError(`${path}: ${key} must be a positive integer`)
     out[key] = v
+  }
+  if (doc.readme !== undefined) {
+    const r = doc.readme as Record<string, unknown> | null
+    if (r === null || typeof r !== 'object' || Array.isArray(r)) throw new UserConfigError(`${path}: readme must be an object`)
+    if (r.title !== undefined) {
+      if (typeof r.title !== 'string' || r.title.trim() === '' || /[\r\n]/.test(r.title)) {
+        throw new UserConfigError(`${path}: readme.title must be one non-empty line`)
+      }
+      out.readme = { title: r.title.trim() }
+    } else out.readme = {}
+  }
+  if (doc.siteUrl !== undefined) {
+    // It goes into a Markdown link as is, so no whitespace, parentheses or angle brackets.
+    if (typeof doc.siteUrl !== 'string' || !/^https?:\/\/[^\s()<>]+$/.test(doc.siteUrl) || !URL.canParse(doc.siteUrl)) {
+      throw new UserConfigError(`${path}: siteUrl must be an http(s) URL without spaces or parentheses`)
+    }
+    out.siteUrl = doc.siteUrl
   }
   return out
 }

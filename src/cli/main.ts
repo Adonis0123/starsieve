@@ -176,6 +176,9 @@ function interruptible(): { signal: AbortSignal; done: () => void } {
   return { signal: controller.signal, done: () => process.off('SIGINT', onInt) }
 }
 
+/** The public README's display options; the config is read here so renderReadme stays pure. */
+const readmeOf = (c: UserConfig) => ({ title: c.readme?.title, siteUrl: c.siteUrl })
+
 function commandKey(positionals: string[]): { key: string; rest: string[] } | undefined {
   const two = positionals.slice(0, 2).join(' ')
   if (COMMANDS[two]) return { key: two, rest: positionals.slice(2) }
@@ -343,7 +346,8 @@ export async function main(argv: string[], options: MainOptions = {}): Promise<n
         return 0
       }
       case 'publish': {
-        const r = await publish(store, flag('out')!, parsed.flags.get('dry-run') === true)
+        const c = await config()
+        const r = await publish(store, flag('out')!, parsed.flags.get('dry-run') === true, { readme: readmeOf(c) })
         const diff = r.identical
           ? 'no difference'
           : `+${r.added.length} -${r.removed.length} ~${r.changed.length}${r.readmeChanged ? ', README changed' : ''}`
@@ -369,6 +373,7 @@ export async function main(argv: string[], options: MainOptions = {}): Promise<n
             dryRun: parsed.flags.get('dry-run') === true,
             maxBatches,
             css: c.portalCss,
+            readme: readmeOf(c),
             mergeTimeoutMs: c.mergeTimeoutMs,
             logDir: options.logDir,
             echo: json ? undefined : (line) => io.err(line),

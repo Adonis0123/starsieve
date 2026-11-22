@@ -9,10 +9,11 @@ import { ZH } from './i18n.ts'
 const read = (name: string) => readFileSync(new URL(name, import.meta.url), 'utf8')
 
 describe('i18n', () => {
-  it('has a Chinese entry for every t() string in client.js, and every entry is used', () => {
+  it('has a Chinese entry for every t() string in client.js and the README, and every entry is used', () => {
     const client = read('./client.js')
     const page = read('./page.ts')
-    const used = new Set([...client.matchAll(/\bt\(\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]!))
+    const readme = read('../publish/projection.ts')
+    const used = new Set([client, readme].flatMap((src) => [...src.matchAll(/\bt\(\s*'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]!)))
     const missing = [...used].filter((s) => !(s in ZH))
     assert.deepEqual(missing, [], 'add these to ZH in src/panel/i18n.ts')
     const unused = Object.keys(ZH).filter((k) => !used.has(k) && !page.includes(`'${k}'`))

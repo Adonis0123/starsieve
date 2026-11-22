@@ -8,7 +8,7 @@ import { buildBatch } from '../core/batch.ts'
 import { overrideItem } from '../core/override.ts'
 import { loadItems } from '../core/store.ts'
 import { seedMixedStore, seedStore, snapshot, star, withDir, xRaw } from '../testing/fixtures.ts'
-import { buildProjection, check, contentHash, holdSources, publish } from './projection.ts'
+import { buildProjection, check, contentHash, holdSources, type PublicDoc, type PublicGithubItem, type PublicXItem, publish, renderReadme } from './projection.ts'
 import { collectGithub } from '../collect/github.ts'
 
 const PUB = 'github:acme/open'
@@ -150,7 +150,8 @@ describe('publish: star counts, Needs Review, addedAt', () => {
       assert.equal(contentHash(moved), contentHash(doc))
       assert.equal((await check(store)).pendingPublish, false)
       const dry = await publish(store, out, true)
-      assert.deepEqual([dry.identical, dry.contentChanged], [false, false])
+      assert.deepEqual([dry.identical, dry.readmeChanged, dry.contentChanged], [false, false, false])
+      assert.equal(renderReadme(moved), renderReadme(doc))
     })
   })
 
@@ -246,9 +247,168 @@ describe('publish X Items', () => {
         // No text: forced private by apply.
         assert.ok(!text.includes('333'), 'post with no text published')
       }
-      assert.match(readme, /- \[@alice\]\(https:\/\/x.com\/alice\/status\/111\) — x:111 摘要 `rust`/)
+      assert.match(readme, /- X · \[@alice\]\(https:\/\/x.com\/alice\/status\/111\) — x:111 摘要 · `rust`/)
       const k = await check(store)
       assert.deepEqual([k.bySource.x, k.skippedItems, k.pendingPublish], [{ items: 2, pendingClassification: 0 }, 1, false])
+    })
+  })
+})
+
+describe('README', () => {
+  const repo = (name: string, over: Partial<PublicGithubItem> = {}): PublicGithubItem => ({
+    id: `github:${name}`,
+    url: `https://github.com/${name}`,
+    name,
+    description: null,
+    language: null,
+    topics: [],
+    archived: false,
+    stargazers: 10,
+    starredAt: '2026-11-01T00:00:00Z',
+    addedAt: '2026-11-01T00:00:00Z',
+    category: 'AI 编程 Agent',
+    tags: [],
+    summary: '',
+    needsReview: false,
+    ...over,
+  })
+  const post = (author: string, over: Partial<PublicXItem> = {}): PublicXItem => ({
+    url: `https://x.com/${author}/status/1`,
+    author,
+    postedAt: null,
+    addedAt: '2026-11-01T00:00:00Z',
+    category: 'AI 编程 Agent',
+    tags: [],
+    summary: '',
+    needsReview: false,
+    ...over,
+  })
+  const doc = (...items: PublicDoc['items']): PublicDoc => ({ schemaVersion: 1, items })
+
+  it('says there is nothing yet for an empty set, without a contents list', () => {
+    assert.equal(
+      renderReadme(doc()),
+      `# 技术收藏
+
+还没有公开的条目。
+
+---
+
+数据：[items.json](items.json)
+
+分类与摘要由 AI 辅助整理。
+
+由 starsieve 自动生成，请勿手改。
+`,
+    )
+  })
+
+  it('lists one Source with the site link, the language once and at most 3 Tags, the first Tag kept', () => {
+    const readme = renderReadme(
+      doc(
+        repo('acme/one', { summary: '一个 CLI', language: 'Rust', tags: ['工具', 'cli', 'rust', 'tui', 'git'] }),
+        repo('acme/two', { language: 'Go', tags: ['go', 'cli'] }),
+        repo('acme/three', { category: '资料合集', summary: '笔记' }),
+      ),
+      { title: 'Adonis 的技术收藏', siteUrl: 'https://example.github.io/stars/', dataPath: 'data/items.json' },
+    )
+    assert.equal(
+      readme,
+      `# Adonis 的技术收藏
+
+收录 3 个 GitHub 仓库，分为 2 个分类。
+
+**[打开在线目录 →](https://example.github.io/stars/)** 可搜索、筛选，按 star 数排序。
+
+## 目录
+
+- [AI 编程 Agent](#ai-编程-agent)（2）
+- [资料合集](#资料合集)（1）
+
+## AI 编程 Agent
+
+- [acme/one](https://github.com/acme/one) — 一个 CLI · \`Rust\` · \`工具\` \`cli\` \`tui\`
+- [acme/two](https://github.com/acme/two) — \`go\` \`cli\`
+
+[↑ 回到目录](#目录)
+
+## 资料合集
+
+- [acme/three](https://github.com/acme/three) — 笔记
+
+[↑ 回到目录](#目录)
+
+---
+
+数据：[data/items.json](data/items.json)
+
+分类与摘要由 AI 辅助整理，待确认状态见[在线目录](https://example.github.io/stars/)。
+
+由 starsieve 自动生成，请勿手改。
+`,
+    )
+  })
+
+  it('marks X posts, escapes Markdown in shown text and gives repeated headings distinct anchors', () => {
+    const readme = renderReadme(
+      doc(
+        post('dev_1', { category: '目录', summary: 'a *b* [c] <d> |e| #f', tags: ['教程', 'a`b'] }),
+        repo('acme/x_y', { category: 'A b' }),
+        repo('acme/z', { category: 'a-b' }),
+      ),
+      { title: '目录' },
+    )
+    assert.equal(
+      readme,
+      `# 目录
+
+收录 2 个 GitHub 仓库和 1 条 X 帖子，分为 3 个分类。
+
+## 目录
+
+- [目录](#目录-2)（1）
+- [A b](#a-b)（1）
+- [a-b](#a-b-1)（1）
+
+## 目录
+
+- X · [@dev\\_1](https://x.com/dev_1/status/1) — a \\*b\\* \\[c\\] \\<d\\> \\|e\\| \\#f · \`教程\` \`ab\`
+
+[↑ 回到目录](#目录-1)
+
+## A b
+
+- [acme/x\\_y](https://github.com/acme/x_y)
+
+[↑ 回到目录](#目录-1)
+
+## a-b
+
+- [acme/z](https://github.com/acme/z)
+
+[↑ 回到目录](#目录-1)
+
+---
+
+数据：[items.json](items.json)
+
+分类与摘要由 AI 辅助整理。
+
+由 starsieve 自动生成，请勿手改。
+`,
+    )
+  })
+
+  it('is byte-identical on a rerun and follows the layout for the data link', async () => {
+    await withDir(async (dir) => {
+      const { store, out } = await setup(dir)
+      const options = { layout: 'repo' as const, readme: { title: 'T', siteUrl: 'https://example.github.io/stars/' } }
+      await publish(store, out, false, options)
+      const first = await readFile(join(out, 'README.md'))
+      const again = await publish(store, out, false, options)
+      assert.ok(first.equals(await readFile(join(out, 'README.md'))))
+      assert.equal(again.readmeChanged, false)
+      assert.match(first.toString(), /数据：\[data\/items\.json\]\(data\/items\.json\)/)
     })
   })
 })

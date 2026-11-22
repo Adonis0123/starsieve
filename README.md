@@ -104,6 +104,14 @@ The default command, overridable in `config.json`:
 
 `publish` writes `items.json` and a `README.md` catalog to `--out`, grouped by Category in table order, newest star (or post) first. An Item is included only when it has a Classification whose Visibility is `public`, and for a star only when its repository is public (`repoPrivate` is `false`); an owner override cannot make a private repository's star public. A GitHub Item also carries `stargazers`; every Item carries `needsReview` and `addedAt` (star time; for X, when starsieve first saw it). An X Item is published as `url`, `author`, `postedAt`, `addedAt`, `category`, `tags`, `summary` and `needsReview` only, never its text; Skipped Items are never published. Only allowlisted fields are written and there are no run timestamps, so publishing twice gives identical files. Star counts change daily, so they alone never count as something new to publish (`contentHash` leaves them out); they are refreshed whenever something else is published. `--dry-run` prints the number of public Items and the difference from what `--out` holds, and writes nothing.
 
+The README is in Chinese: the title, the counts, a link to the online catalog, a contents list with each Category's count, then one section per Category with a link back to the contents. Each Item is one line, `[owner/repo](url) — Summary · language · Tags` (at most 3 Tags, the first kept; the language is not repeated as a Tag), or `X · [@author](url) — …` for a post. It shows no star counts, so a day where only star counts moved leaves it unchanged. Two optional keys in `~/.config/starsieve/config.json` set it, and `publish` and `run` both read them:
+
+```json
+{ "readme": { "title": "技术收藏" }, "siteUrl": "https://<owner>.github.io/<repo>/" }
+```
+
+`readme.title` defaults to 技术收藏. Without `siteUrl` the README leaves out the online-catalog link; it is never guessed from `publicRepo`, since a repository name does not prove Pages is on.
+
 ## Panel and public site
 
 One page renders both (`src/panel`). The Panel is the Local Tools Portal's `kind: "panel"` entry: `src/panel/index.ts` exports `createPanelHandler({ basePath, allowedHosts, theme, readOnly, lang })`, and `/api/health` answers `{ app: "starsieve", version }`. It shows every Item of the store named by `storePath` in `~/.config/starsieve/config.json`, with filters by Source, Category and Tag, search, and sorting by recently added or by stars. Edits call the same functions as `starsieve override` and `override --unskip` (the "Skipped" tab); `readOnly` hides them and refuses every write. Writes also need the page's Origin and its per-instance token.

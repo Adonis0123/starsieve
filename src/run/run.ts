@@ -13,7 +13,7 @@ import { openEgoBrowser } from '../collect/x-browser.ts'
 import { loadCategories, requireStore, STORE_LOCK, withStoreLock } from '../core/store.ts'
 import type { Source } from '../core/types.ts'
 import { type ListsSyncResult, listsSync } from '../lists/sync.ts'
-import { buildProjection, check, contentHash, holdSources, publish } from '../publish/projection.ts'
+import { buildProjection, check, contentHash, holdSources, publish, type PublishOptions } from '../publish/projection.ts'
 import { buildSite } from '../site/build.ts'
 import { type Exec, exec as realExec, tail } from './exec.ts'
 import { commitPaths, currentBranch, git, githubSlug, originUrls, revParse, topLevel } from './git.ts'
@@ -66,6 +66,8 @@ export interface RunOptions {
   maxBatches?: number
   /** The Portal's local-tools.css, inlined by site build. */
   css?: string
+  /** README title and site link, from the user config. */
+  readme?: PublishOptions['readme']
   mergeTimeoutMs?: number
   pollMs?: number
   logDir?: string
@@ -370,7 +372,7 @@ export async function run(options: RunOptions): Promise<RunReport> {
         if (!changed) {
           return `${doc.items.length} public Items; nothing new beyond star counts on ${choice.branch}${choice.reused ? ' (reused)' : ''}`
         }
-        const r = await publish(store, pub, false, { layout: 'repo', doc }).finally(() => recordWritten([ITEMS_FILE, 'README.md']))
+        const r = await publish(store, pub, false, { layout: 'repo', doc, readme: options.readme }).finally(() => recordWritten([ITEMS_FILE, 'README.md']))
         const held = report.held.length ? `; held as before: ${report.held.join(', ')}` : ''
         return `${r.publicItems} public Items on ${choice.branch} (+${r.added.length} -${r.removed.length} ~${r.changed.length})${held}`
       })
