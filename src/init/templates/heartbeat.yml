@@ -1,0 +1,21 @@
+# Heartbeat check for the Private Store (ADR 0003): the daily run happens on the owner's Mac, so CI notices when it stops.
+# Written by `starsieve init data`. Every 6 hours: an issue when the last successful run is older than 48 hours,
+# closed again after the next successful run.
+name: heartbeat
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check lastSuccessAt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node .github/scripts/heartbeat-check.mjs --heartbeat "{{HEARTBEAT}}"

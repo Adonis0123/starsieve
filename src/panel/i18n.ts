@@ -1,0 +1,102 @@
+// Page strings: English is the key, ZH holds the same keys in Chinese. client.js and page.ts call t("English");
+// i18n.test.ts fails when a t() string has no entry here or an entry is no longer used. CLI and API messages stay English.
+
+export type Lang = 'en' | 'zh'
+
+export const ZH: Record<string, string> = {
+  // page.ts
+  Stars: '收藏',
+  'GitHub stars and X likes and bookmarks, sorted into Categories': 'GitHub star 和 X 点赞、书签，按分类整理',
+  'Repositories I starred on GitHub and posts I saved on X, sorted into Categories by starsieve.':
+    '我在 GitHub 上 star 的仓库和在 X 上收藏的帖子，由 starsieve 分类整理。',
+  'This page needs JavaScript.': '这个页面需要 JavaScript。',
+  // client.js
+  '{id} is no longer skipped. The next X collection stores it as pending.': '{id} 已取消跳过，下次采集 X 时会作为待分类条目存回。',
+  '{list} backfill: {seen} read': '{list}回填：读到 {seen} 条',
+  '{list} backfill: {seen} read, back to {date}': '{list}回填：读到 {seen} 条，最早到 {date}',
+  '{shown} of {total} Items': '显示 {shown} / {total} 条',
+  '(opens in a new tab)': '（在新标签页打开）',
+  'A private repository is never published': '私有仓库永远不会公开',
+  'Added {date}': '{date} 加入',
+  All: '全部',
+  'All categories': '全部分类',
+  Archived: '已归档',
+  Bookmark: '书签',
+  Bookmarks: '书签',
+  Cancel: '取消',
+  Category: '分类',
+  'Changed by hand; the Classifier never overwrites it': '手动改过，分类器不会再覆盖',
+  'Check that the Portal is running, then retry.': '确认门户在运行，然后重试。',
+  'Clear filters': '清除筛选',
+  'Collect your GitHub stars, then sort them:': '先采集 GitHub star，再分类：',
+  'Comma separated, at most 6': '用逗号分隔，最多 6 个',
+  'Could not load Stars': '收藏加载失败',
+  'Could not read the store': '读取 store 失败',
+  'Could not save: {message}': '保存失败：{message}',
+  'Could not unskip: {message}': '取消跳过失败：{message}',
+  Edit: '编辑',
+  'Edit {name}': '编辑 {name}',
+  Filters: '筛选',
+  interrupted: '被中断',
+  Items: '条目',
+  'Items appear here once they are classified as public.': '条目分类为公开后会出现在这里。',
+  Like: '点赞',
+  Likes: '点赞',
+  'Loading…': '加载中…',
+  Locked: '已锁定',
+  'Most stars': 'star 最多',
+  'Needs review': '待确认',
+  'Never published': '不会公开',
+  'Next step:': '下一步：',
+  'No Items match': '没有匹配的条目',
+  'No post text was saved': '没有保存到帖子正文',
+  'No Skipped Items': '没有已跳过的条目',
+  'No store set up': '还没有设置 store',
+  'No summary yet': '还没有摘要',
+  'Not classified': '待分类',
+  'Nothing collected yet': '还没有采集任何条目',
+  'Nothing public yet': '还没有公开的条目',
+  'Only the id of a Skipped Item is kept, so it is never judged, shown or published. Unskip brings it back with the next X collection.':
+    '已跳过的条目只保留 id，不再判断、展示或公开。取消跳过后，下次采集 X 时会把它存回来。',
+  'Posts the Classifier judges not technical are listed here by id.': '分类器判为非技术的帖子会按 id 列在这里。',
+  Private: '私密',
+  'Private repository': '私有仓库',
+  Public: '公开',
+  'reached the end': '已到底',
+  'Reading the store.': '正在读取 store。',
+  'Recently added': '最近新增',
+  Reload: '重新加载',
+  'Remove Tag filter {name}': '取消标签筛选 {name}',
+  Retry: '重试',
+  Save: '保存',
+  'Saved and Locked: {name}': '已保存并锁定：{name}',
+  'Saved post text': '原文',
+  'Saving locks it: the Classifier never overwrites it.': '保存后会锁定，分类器不会再覆盖。',
+  Search: '搜索',
+  'Search names, summaries and tags (press /)': '搜索名称、摘要和标签（按 /）',
+  Skipped: '已跳过',
+  'Skipped {date}': '{date} 跳过',
+  Sort: '排序',
+  Source: '来源',
+  Status: '状态',
+  'stopped before the end': '未到底',
+  Summary: '摘要',
+  Tags: '标签',
+  'Tell the Panel where your Private Store is, in {path}:': '在 {path} 里写上私有 store 的位置：',
+  'The Classifier was not sure about this one': '分类器对这条没把握',
+  'The next X collection stores it again as pending': '下次采集 X 时会作为待分类条目存回',
+  'Then reload this page.': '然后重新加载本页。',
+  'Try another word, or clear the filters.': '换个关键词，或者清除筛选。',
+  Unskip: '取消跳过',
+  Views: '视图',
+  Visibility: '可见性',
+  'X lists are not ordered by post time, so completeness stays unknown': 'X 列表不按发帖时间排序，所以无法确认是否完整',
+}
+
+export function dictFor(lang: Lang): Record<string, string> {
+  return lang === 'zh' ? ZH : {}
+}
+
+export function translator(lang: Lang): (s: string) => string {
+  return (s) => (lang === 'zh' ? (ZH[s] ?? s) : s)
+}

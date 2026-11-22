@@ -1,0 +1,20 @@
+# Required check on starsieve's daily PR (ADR 0002: the second line of defense; publish filters before any push).
+# Written by `starsieve init data`. Branch protection on main requires the job named "check".
+# The validator comes from the base branch, so a PR cannot change the rules it is checked by.
+name: check
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Take the validator from the base branch
+        run: git show "origin/${{ github.base_ref }}:.github/scripts/validate.mjs" > "$RUNNER_TEMP/validate.mjs"
+      - name: Validate data/items.json and the changed paths
+        run: node "$RUNNER_TEMP/validate.mjs" --root . --base "origin/${{ github.base_ref }}"

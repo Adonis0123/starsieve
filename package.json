@@ -1,0 +1,24 @@
+{
+  "name": "starsieve",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sort what you starred on GitHub into Categories with any agent CLI, and publish only what may be public.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "starsieve": "src/cli/main.ts"
+  },
+  "scripts": {
+    "starsieve": "node src/cli/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-concurrency=4 \"src/**/*.test.ts\""
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@10.15.0",
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^7.0.2"
+  }
+}
