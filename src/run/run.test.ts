@@ -1,7 +1,7 @@
 // run: the step order, the Heartbeat, the nothing-new path, failures, and git against local bare remotes.
 import assert from 'node:assert/strict'
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { collectGithub } from '../collect/github.ts'
@@ -685,6 +685,20 @@ describe('rollbackWrites', () => {
       assert.deepEqual(r.kept.map((k) => k.reason), ['changed while it was being rolled back', 'changed while it was being rolled back'])
       assert.equal(await readFile(join(repo, 'README.md'), 'utf8'), 'owner README.md\n')
       assert.equal(await readFile(join(repo, 'new.json'), 'utf8'), 'owner new.json\n')
+    })
+  })
+
+  it('leaves a file that became a symbolic link alone, so a target outside the clone is never overwritten', async () => {
+    await withDir(async (dir) => {
+      const repo = await headRepo(dir)
+      const outside = join(dir, 'outside.md')
+      await writeFile(outside, 'run\n')
+      await rm(join(repo, 'README.md'))
+      await symlink(outside, join(repo, 'README.md'))
+      const r = await rollbackWrites(repo, new Map([['README.md', blobHash('run\n')]]))
+      assert.deepEqual(r.reverted, [])
+      assert.deepEqual(r.kept.map((k) => k.reason), ['is a symbolic link now'])
+      assert.equal(await readFile(outside, 'utf8'), 'run\n')
     })
   })
 })

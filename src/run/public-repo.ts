@@ -1,7 +1,7 @@
 // The public repository's local clone: which branch a run publishes on, what main holds now, and pushing it.
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { lstatSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, rm, rmdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -254,6 +254,11 @@ export async function rollbackWrites(
     // Check and write with no await in between, so nothing in this process runs between them. Left open: another
     // process saving the file between the readFileSync below and the write or unlink, and staging it between the index
     // check above and the index repair below; git offers no compare-and-swap on the working tree to close either.
+    // writeFileSync follows a symbolic link, so a file replaced by a link to elsewhere would overwrite that target.
+    if (lstatSync(join(repo, path), { throwIfNoEntry: false })?.isSymbolicLink()) {
+      kept.push({ path, reason: 'is a symbolic link now' })
+      continue
+    }
     const last = readWorktreeSync(repo, path)
     if (!last || blobHash(last) !== wrote) {
       kept.push({ path, reason: 'changed while it was being rolled back' })
