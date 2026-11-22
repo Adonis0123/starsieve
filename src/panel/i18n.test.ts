@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
+// @ts-expect-error client.js is the Panel's plain browser script and ships no type declarations
 import { cardHtml, categoryCounts, formChange, makeT, matches, NONE, safeUrl, sortItems } from './client.js'
 import { ZH } from './i18n.ts'
 
@@ -44,8 +45,8 @@ describe('client filters', () => {
 
   it('sorts by recently added or by stars, and lists Categories in table order', () => {
     const items = [item('old', { stars: 900, addedAt: '2025-01-01' }), item('new', { stars: 5, addedAt: '2026-05-01' }), item('x', { addedAt: '2026-06-01' })]
-    assert.deepEqual(sortItems(items, 'recent').map((i) => i.key), ['x', 'new', 'old'])
-    assert.deepEqual(sortItems(items, 'stars').map((i) => i.key), ['old', 'new', 'x'])
+    assert.deepEqual(sortItems(items, 'recent').map((i: { key: string }) => i.key), ['x', 'new', 'old'])
+    assert.deepEqual(sortItems(items, 'stars').map((i: { key: string }) => i.key), ['old', 'new', 'x'])
     const cats = categoryCounts([item('1', { category: 'B' }), item('2', { category: 'A' }), item('3', { category: null }), item('4', { category: 'Z' })], ['A', 'B'])
     assert.deepEqual(cats, [['A', 1], ['B', 1], ['Z', 1], [NONE, 1]])
   })

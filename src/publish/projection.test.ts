@@ -139,7 +139,7 @@ describe('publish: star counts, Needs Review, addedAt', () => {
       const { store, out } = await setup(dir)
       await overrideItem(store, 'github:acme/older', { visibility: 'public' })
       const doc = await buildProjection(store)
-      const open = doc.items.find((i) => 'id' in i && i.id === PUB) as Record<string, unknown>
+      const open = doc.items.find((i) => 'id' in i && i.id === PUB) as unknown as Record<string, unknown>
       assert.deepEqual([open.stargazers, open.needsReview, open.addedAt], [10, false, '2026-11-01T00:00:00Z'])
       await publish(store, out, false)
       assert.equal((await check(store)).pendingPublish, false)

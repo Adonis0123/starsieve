@@ -164,8 +164,8 @@ export async function runAgent(config: ClassifierConfig, prompt: string, storeDi
       let stdout = ''
       let stderr = ''
       let timedOut = false
-      child.stdout.setEncoding('utf8').on('data', (d: string) => (stdout += d))
-      child.stderr.setEncoding('utf8').on('data', (d: string) => (stderr += d))
+      child.stdout!.setEncoding('utf8').on('data', (d: string) => (stdout += d))
+      child.stderr!.setEncoding('utf8').on('data', (d: string) => (stderr += d))
       const timer = setTimeout(() => {
         timedOut = true
         killGroup('SIGTERM')

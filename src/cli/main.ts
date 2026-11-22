@@ -381,7 +381,10 @@ export async function main(argv: string[], options: MainOptions = {}): Promise<n
           if (e instanceof LockedError) return fail(1, e.message)
           throw e
         }
-        if (json) io.out(JSON.stringify({ schemaVersion: SCHEMA_VERSION, ok: r.ok, command: found.key, ...r }, null, 2))
+        if (json) {
+          const { ok, ...rest } = r
+          io.out(JSON.stringify({ schemaVersion: SCHEMA_VERSION, ok, command: found.key, ...rest }, null, 2))
+        }
         else io.out(runText(r))
         return r.ok ? 0 : 1
       }
