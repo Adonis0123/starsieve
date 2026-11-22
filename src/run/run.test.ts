@@ -67,9 +67,9 @@ describe('run', () => {
       assert.equal(r.classified, 2)
       assert.equal(r.nothingNew, false)
 
-      // Public branch: data, README and site; the clone is back on main; nothing pushed.
+      // Public branch: data, both READMEs and site; the clone is back on main; nothing pushed.
       const files = (await gitIn(repos.pub, 'show', '--name-only', '--format=', DAY_BRANCH)).trim().split('\n').sort()
-      assert.deepEqual(files, ['README.md', 'data/items.json', 'docs/index.html'])
+      assert.deepEqual(files, ['README.md', 'README.zh-CN.md', 'data/items.json', 'docs/index.html'])
       assert.equal((await gitIn(repos.pub, 'branch', '--show-current')).trim(), 'main')
       const items = JSON.parse(await gitIn(repos.pub, 'show', `${DAY_BRANCH}:data/items.json`)) as { items: { id: string }[] }
       assert.deepEqual(items.items.map((i) => i.id).sort(), ['github:acme/alpha', 'github:acme/beta'])
@@ -116,19 +116,19 @@ describe('run', () => {
     })
   })
 
-  it('a new README (here its title) is published even when no Item changed', async () => {
+  it('a new README (here its title, only the Chinese one) is published even when no Item changed', async () => {
     await withDir(async (dir) => {
       const repos = await makeRepos(dir, STARS)
       await run(setup(repos).options)
       const tipBefore = (await gitIn(repos.pub, 'rev-parse', DAY_BRANCH)).trim()
-      const r = await run(setup(repos, { readme: { title: 'Stars of o' } }).options)
+      const r = await run(setup(repos, { readme: { title: { zh: 'Stars of o' } } }).options)
       assert.equal(r.ok, true, JSON.stringify(r.steps, null, 2))
       assert.equal(r.nothingNew, false)
       assert.match(r.steps.find((x) => x.name === 'publish')!.detail!, /README changed/)
       assert.ok(r.public.commit)
       const files = (await gitIn(repos.pub, 'diff', '--name-only', tipBefore, DAY_BRANCH)).trim().split('\n')
-      assert.deepEqual(files, ['README.md'])
-      assert.match(await gitIn(repos.pub, 'show', `${DAY_BRANCH}:README.md`), /^# Stars of o/)
+      assert.deepEqual(files, ['README.zh-CN.md'])
+      assert.match(await gitIn(repos.pub, 'show', `${DAY_BRANCH}:README.zh-CN.md`), /^# Stars of o/)
     })
   })
 
@@ -471,10 +471,12 @@ describe('run', () => {
       }
       await gitIn(pub, 'checkout', '--quiet', '-b', 'starsieve/y')
       await commit('README.md', 'first')
+      // README.zh-CN.md is a published path, so only the CI script is named below.
+      await commit('README.zh-CN.md', '中文')
       await commit('.github/scripts/validate.mjs', '// CI fix\n')
       await commit('README.md', 'second')
       const before = (await gitIn(pub, 'rev-parse', 'HEAD')).trim()
-      await assert.rejects(squashUnpushed(pub, 'starsieve/y', 'origin/main', 'squashed'), /outside data, README\.md, docs \(\.github\/scripts\/validate\.mjs\)/)
+      await assert.rejects(squashUnpushed(pub, 'starsieve/y', 'origin/main', 'squashed'), /outside data, README\.md, README\.zh-CN\.md, docs \(\.github\/scripts\/validate\.mjs\)/)
       assert.equal((await gitIn(pub, 'rev-parse', 'starsieve/y')).trim(), before, 'the branch is untouched')
       assert.equal(await readFile(join(pub, '.github/scripts/validate.mjs'), 'utf8'), '// CI fix\n')
       assert.equal((await gitIn(pub, 'status', '--porcelain')).trim(), '')
@@ -538,7 +540,7 @@ describe('run', () => {
       setStars([...STARS, star('acme/gamma', { starred_at: '2026-11-20T00:00:00Z' })])
       const r = await run(options)
       assert.equal(status(r).public, 'failed')
-      assert.match(r.steps.find((x) => x.name === 'public')!.error!, /outside data, README\.md, docs/)
+      assert.match(r.steps.find((x) => x.name === 'public')!.error!, /outside data, README\.md, README\.zh-CN\.md, docs/)
       assert.equal(r.public.pushed, false)
       assert.equal((await gitIn(repos.publicBare, 'branch', '--list')).includes('starsieve/'), false, 'nothing pushed')
       const history = (await gitIn(repos.pub, 'log', '--format=%s', DAY_BRANCH)).split('\n')
@@ -611,8 +613,9 @@ describe('run', () => {
       const r = await run(options)
       assert.equal(status(r).site, 'failed')
       assert.equal(await readFile(join(repos.pub, 'docs/index.html'), 'utf8'), '<p>owner page</p>\n')
-      // What publish did write is undone (main has no README.md).
+      // What publish did write is undone (main has neither README).
       await assert.rejects(stat(join(repos.pub, 'README.md')), /ENOENT/)
+      await assert.rejects(stat(join(repos.pub, 'README.zh-CN.md')), /ENOENT/)
       const restore = r.steps.find((x) => x.name === 'restore-public')
       assert.match(restore?.error ?? '', /docs\/index\.html \(not written by this run\)/)
       const hb = (await loadHeartbeat(repos.store))!

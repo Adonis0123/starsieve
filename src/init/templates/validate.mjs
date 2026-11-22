@@ -5,7 +5,7 @@
 //   node .github/scripts/validate.mjs [--root <dir>] [--items <file>] [--base <git ref>]
 //
 // --items: the file to check (default <root>/data/items.json). --base: also check that the PR changed only data/,
-// README.md and docs/. Exit 0 when valid, 1 with one line per problem otherwise.
+// README.md, README.zh-CN.md and docs/. Exit 0 when valid, 1 with one line per problem otherwise.
 import { execFileSync } from 'node:child_process'
 import { readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url'
 export const SCHEMA_VERSION = 1
 export const MAX_SUMMARY = 80
 export const MAX_TAGS = 6
-export const ALLOWED_PATHS = [/^data\//, /^README\.md$/, /^docs\//]
+export const ALLOWED_PATHS = [/^data\//, /^README\.md$/, /^README\.zh-CN\.md$/, /^docs\//]
 export const GITHUB_KEYS = ['addedAt', 'archived', 'category', 'description', 'id', 'language', 'name', 'needsReview', 'stargazers', 'starredAt', 'summary', 'tags', 'topics', 'url']
 export const X_KEYS = ['addedAt', 'author', 'category', 'needsReview', 'postedAt', 'summary', 'tags', 'url']
 /** Fields of the Private Store that must never be public: Visibility, private-repository marks, X post text, store internals. */
@@ -77,7 +77,7 @@ export function validateDoc(doc) {
 
 /** Problems with the changed paths: the daily PR may only touch the public files starsieve writes. */
 export function validatePaths(paths) {
-  return paths.filter((p) => !ALLOWED_PATHS.some((re) => re.test(p))).map((p) => `${p}: the PR may change only data/, README.md and docs/`)
+  return paths.filter((p) => !ALLOWED_PATHS.some((re) => re.test(p))).map((p) => `${p}: the PR may change only data/, README.md, README.zh-CN.md and docs/`)
 }
 
 function main(argv) {

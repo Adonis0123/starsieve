@@ -211,7 +211,7 @@ export async function run(options: RunOptions): Promise<RunReport> {
     planned('collect-x', options.collectX === false ? X_OFF : 'ego-browser, profile Default: likes and bookmarks')
     const batches = Math.ceil(k.pendingClassification / BATCH_SIZE)
     planned('classify', `${options.maxBatches !== undefined ? Math.min(batches, options.maxBatches) : batches} Batches of ${BATCH_SIZE} (plus whatever collection adds)`)
-    planned('publish', `data/items.json and README.md into ${pub}, on branch ${BRANCH_PREFIX}${day}`)
+    planned('publish', `data/items.json, README.md and README.zh-CN.md into ${pub}, on branch ${BRANCH_PREFIX}${day}`)
     planned('site', `docs/index.html into ${pub}`)
     planned('private', options.push ? 'commit and push the Private Store' : 'commit the Private Store (--no-push)')
     planned('public', options.push ? 'commit and push the public branch' : 'commit the public branch (--no-push)')
@@ -365,7 +365,7 @@ export async function run(options: RunOptions): Promise<RunReport> {
         doc = holdSources(await buildProjection(store), previous, report.held, order)
         publicTouched = true
         await git(pub, ['checkout', '--quiet', '--no-track', '-B', choice.branch, choice.from])
-        // A new README (layout, title, site link) is something to publish too; it holds no star counts.
+        // A new README (layout, title, site link, Category English names) is something to publish too; it holds no star counts.
         const plan = await publish(store, pub, true, { layout: 'repo', doc, readme: options.readme })
         changed = contentHash(doc) !== contentHash(previous) || plan.readmeChanged
         if (!changed) {

@@ -15,7 +15,7 @@ starsieve 把你在 GitHub 上 star 的仓库，以及你在 X 上点赞或收�
 - 采集 X（可选）：需要 `ego-browser` CLI，并且它的 `Default` profile 已登录 x.com。没有它时，在用户配置里设置 `"collectX": false`，`run` 就会跳过 X。
 - Local Tools Portal（本机工具门户，可选）：只有 Panel 需要它；`site build` 和 `run` 不依赖它。
 
-默认的 Category Table（分类表，`categories init`）和发布出去的 README 都是中文。可以用 `categories set --file` 替换分类表；README 的固定文字只有中文，标题由 `readme.title` 设置。
+默认的 Category Table（分类表，`categories init`）是中文的，每个 Category 另有英文名（`nameEn`）。可以用 `categories set --file` 替换分类表。`publish` 写两份 README：英文的 `README.md`（分类用英文名，摘要和标签保持中文）和中文的 `README.zh-CN.md`；标题由 `readme.title` 设置。
 
 ## 快速开始
 
@@ -99,7 +99,7 @@ starsieve 把你在 GitHub 上 star 的仓库，以及你在 X 上点赞或收�
   | `publicRepoPath` | 无 | 公开仓库的本地克隆：`run` 和 `lists sync` 的 `--public`。 |
   | `publicRepo` | 无 | 公开仓库的 `owner/name`，供 `gh` 使用（PR、`init github`），也用于检查 store 永远不会 push 到它。 |
   | `siteUrl` | 无 | 公开站点地址，README 会链接到它；不会根据 `publicRepo` 猜测。 |
-  | `readme.title` | 技术收藏 | 发布出去的 README 的标题。 |
+  | `readme.title` | Tech collection / 技术收藏 | 发布出去的两份 README 的标题：一行字符串两种语言共用，或写成 `{ "en": …, "zh": … }` 分别设置（缺的那个用默认值）。 |
   | `portalCss` | 无 | Portal 的 `local-tools.css`，`site build` 会内联它，代替 `src/site/default.css`。没有 Portal 时不要写这个键：文件不存在会让 `site build` 和 `run` 失败。 |
   | `collectX` | `true` | `false`：`run` 跳过 `collect-x`（该步骤显示为 `skipped`）；store 里已有的 X Item 照常发布。 |
   | `schedulePush` | `false` | `true`：LaunchAgent 的 `run` 会 push；否则它带上 `--no-push`。 |
@@ -147,7 +147,7 @@ store 是一个普通目录，设计上放在一个私有 git 仓库里。每个
 | `skipped.json` | `{schemaVersion, skipped}`；Skipped Item（跳过的条目）：从 id 到 `{skippedAt}` 的映射。它们的文本已从 `items/x.json` 删除；再次采集到它们时只计为已知。 |
 | `backfill.json` | `{schemaVersion, x: {like, bookmark}}`；每个列表最近一次 Backfill 读到的位置：`startedAt`、`updatedAt`、`scrolls`、`seen`、`added`、`earliestPostedAt`、`reachedEnd`、`finished`。 |
 | `classifications.json` | `{schemaVersion, classifications}`；从 Item id 到它的 Classification（分类结果）的映射：`category`、`tags`、`summary`、`visibility`、`needsReview`、`locked`、`by`（`classifier`、`owner`，私有仓库的 star 则是 `collector`）、`inputHash`。 |
-| `categories.json` | Category Table：`{schemaVersion, categories: [{name, description}]}`。表里的顺序就是发布出去的 README 里各节的顺序。`categories init` 只在还没有分类表时写入默认表；`categories set --file` 先检查新表再替换（`schemaVersion` 为 1，名称非空且不重复，包含 `未分类`，最多 32 个 Category，这是 GitHub Lists 的上限）。加 `--reclassify` 时，它还会删除所有未锁定的 `classifier` 分类结果，让这些 Item 重新变成待分类；Locked（已锁定）和 `collector` 分类结果以及 Skipped Item 保持不变。Category 已不在表里的 Locked 分类结果会列在 `staleLocked` 中，留给 `override` 处理。 |
+| `categories.json` | Category Table：`{schemaVersion, categories: [{name, description, nameEn?}]}`。`name` 是 Category 本身，Classifier、分类结果和 `items.json` 都用它；可选的 `nameEn`（单行）只用于展示，出现在英文 README 里，没有它时显示 `name`（`未分类` 显示为 `Uncategorized`）。表里的顺序就是发布出去的 README 里各节的顺序。`categories init` 只在还没有分类表时写入默认表；`categories set --file` 先检查新表再替换（`schemaVersion` 为 1，名称非空且不重复，包含 `未分类`，最多 32 个 Category，这是 GitHub Lists 的上限）。加 `--reclassify` 时，它还会删除所有未锁定的 `classifier` 分类结果，让这些 Item 重新变成待分类；Locked（已锁定）和 `collector` 分类结果以及 Skipped Item 保持不变。Category 已不在表里的 Locked 分类结果会列在 `staleLocked` 中，留给 `override` 处理。 |
 | `config.json` | 可选。`{schemaVersion, classifier: {command, timeoutMs}}`：只设置 Classifier；本机设置放在 `~/.config/starsieve/config.json`（见 [配置](#配置)）。 |
 | `publish-state.json` | 由 `publish` 写入（`--dry-run` 不写）：上一次 Public Projection（公开投影，即允许公开的 Item 和字段子集）的哈希，以及它的 `contentHash`（不含 star 数），供 `check` 使用。 |
 | `owner-kept.json` | `{schemaVersion, kept}`：所有者用 `override --unskip` 取回的 X 帖子，按 id 记录。`apply` 不会再跳过它们。 |
@@ -208,15 +208,15 @@ X 会截断长帖，所以 `text` 可能只是预览。X Article 本身没有帖
 
 ## 发布
 
-`publish` 把 `items.json` 和一份 `README.md` 目录写到 `--out`。内容按 Category 分组，顺序与分类表一致；组内最新 star（或帖子）在前。一个 Item 要被收录，必须有 Visibility（可见性）为 `public` 的分类结果；如果是 star，它的仓库还必须是公开的（`repoPrivate` 为 `false`）。所有者的 override 也不能让私有仓库的 star 变成公开。GitHub Item 还带 `stargazers`；每个 Item 都带 `needsReview` 和 `addedAt`（star 的时间；X 则是 starsieve 第一次看到它的时间）。X Item 发布时只包含 `url`、`author`、`postedAt`、`addedAt`、`category`、`tags`、`summary` 和 `needsReview`，从不包含正文；Skipped Item 永远不发布。只写入白名单里的字段，也不写运行时间戳，所以发布两次得到的文件完全相同。star 数每天都在变，所以单是 star 数变化不算有新内容要发布（`contentHash` 不含 star 数）；只要发布了别的内容，star 数就会一起刷新。`--dry-run` 打印公开 Item 的数量，以及与 `--out` 现有内容的差异，不写任何文件。
+`publish` 把 `items.json` 和两份 README 目录（英文 `README.md`、中文 `README.zh-CN.md`）写到 `--out`。内容按 Category 分组，顺序与分类表一致；组内最新 star（或帖子）在前。一个 Item 要被收录，必须有 Visibility（可见性）为 `public` 的分类结果；如果是 star，它的仓库还必须是公开的（`repoPrivate` 为 `false`）。所有者的 override 也不能让私有仓库的 star 变成公开。GitHub Item 还带 `stargazers`；每个 Item 都带 `needsReview` 和 `addedAt`（star 的时间；X 则是 starsieve 第一次看到它的时间）。X Item 发布时只包含 `url`、`author`、`postedAt`、`addedAt`、`category`、`tags`、`summary` 和 `needsReview`，从不包含正文；Skipped Item 永远不发布。只写入白名单里的字段，也不写运行时间戳，所以发布两次得到的文件完全相同。star 数每天都在变，所以单是 star 数变化不算有新内容要发布（`contentHash` 不含 star 数）；只要发布了别的内容，star 数就会一起刷新。`--dry-run` 打印公开 Item 的数量，以及与 `--out` 现有内容的差异，不写任何文件。
 
-README 是中文的：依次是标题、数量统计、在线目录链接、带各 Category 数量的目录，然后每个 Category 一节，每节带一个回到目录的链接。每个 Item 占一个列表项：仓库写成 `[owner/repo](url) — Summary<br><sub>language · Tags</sub>`（Summary 去掉末尾句号；最多 3 个 Tag（标签），保留第一个；第一个 Tag 已经写明语言时，省略 language）；帖子写成 `X · [@author](url) — Summary<br><sub>Tags</sub>`。没有 Summary 时省略破折号；没有 language 和 Tags 时省略第二行。README 不显示 star 数，所以只有 star 数变化的那天它保持不变。`~/.config/starsieve/config.json` 里的两个可选键控制它，`publish` 和 `run` 都会读取：
+两份 README 结构相同：依次是标题、切换到另一种语言的链接、数量统计、在线目录链接、带各 Category 数量的目录，然后每个 Category 一节，每节带一个回到目录的链接。每个 Item 占一个列表项：仓库写成 `[owner/repo](url) — Summary<br><sub>language · Tags</sub>`（Summary 去掉末尾句号；最多 3 个 Tag（标签），保留第一个；第一个 Tag 已经写明语言时，省略 language）；帖子写成 `X · [@author](url) — Summary<br><sub>Tags</sub>`。没有 Summary 时省略破折号；没有 language 和 Tags 时省略第二行。英文版显示各 Category 的 `nameEn`，并说明摘要和标签是中文；中文版全是中文。README 不显示 star 数，所以只有 star 数变化的那天它们保持不变。`~/.config/starsieve/config.json` 里的两个可选键控制它们，`publish` 和 `run` 都会读取：
 
 ```json
-{ "readme": { "title": "技术收藏" }, "siteUrl": "https://<owner>.github.io/<repo>/" }
+{ "readme": { "title": { "en": "Tech collection", "zh": "技术收藏" } }, "siteUrl": "https://<owner>.github.io/<repo>/" }
 ```
 
-`readme.title` 默认是 技术收藏。没有 `siteUrl` 时，README 不放在线目录链接；starsieve 从不根据 `publicRepo` 猜这个地址，因为仓库名证明不了 Pages 已开启。
+`readme.title` 英文默认是 Tech collection，中文默认是 技术收藏；写成一行字符串时两种语言共用。没有 `siteUrl` 时，README 不放在线目录链接；starsieve 从不根据 `publicRepo` 猜这个地址，因为仓库名证明不了 Pages 已开启。
 
 ## Panel 与公开站点
 
@@ -237,9 +237,9 @@ README 是中文的：依次是标题、数量统计、在线目录链接、带�
 1. `check`：检查 store、store 所在的私有仓库和公开克隆。store 不能位于公开克隆内部，store 所在的仓库不能就是公开克隆，store 的 `origin` URL（fetch 和 push 都算，包括 `pushurl`）都不能指向公开仓库（即与公开克隆某个 `origin` URL 相同，或者等于 `publicRepo` 的 slug，大小写不限）。store 的 JSON 也必须通过 `check`。这一步有任何失败，run 就停止，store 里什么都不会 commit 或 push：Heartbeat 只写进 store；如果 store 位于公开克隆内部，则完全不写（那里的任何文件都可能进入公开提交）。
 2. `collect-github`、`collect-x`：失败（包括 X 未登录）会让这次 run 失败，但 run 会继续，只是不发布该 Source：它的公开 Item 保持公开分支上的样子，只移除 store 里已不再公开的那些（改成私有、被跳过、已消失）。配置里设了 `"collectX": false` 时，`collect-x` 为 `skipped`，不采集 X。
 3. `classify`：每批 25 个，直到没有待分类 Item，或达到 `--max-batches`（`0`：什么都不分类）。
-4. `publish`、`site`：在公开克隆的 `starsieve/YYYYMMDD` 分支上（会复用已打开的 starsieve PR 的分支，或尚未 push 的本地分支）写 `data/items.json`、`README.md` 和 `docs/index.html`。只有 star 数变化时什么都不写。
+4. `publish`、`site`：在公开克隆的 `starsieve/YYYYMMDD` 分支上（会复用已打开的 starsieve PR 的分支，或尚未 push 的本地分支）写 `data/items.json`、`README.md`、`README.zh-CN.md` 和 `docs/index.html`。只有 star 数变化时什么都不写。
 5. `private`：提交 store（Heartbeat 在最后提交）并 push。
-6. `public`：提交分支并 push。push 之前，还没有任何远端见过的提交（来自之前 `--no-push` 的运行，多于一个时）会被压成一个提交，内容是当前的投影，放在 base 之上，或放在已 push 的分支之上。这样，本地发布过又在 push 前撤回的 Item 永远不会到达 GitHub。以下情况这一步会失败，分支保持原样，什么都不 push：这些提交改了 `data/`、`README.md` 和 `docs/` 以外的文件（压缩会丢掉这些改动）；本地分支和已 push 的分支已经分叉。这时先手动理顺分支，再重新运行。已经 push 的内容撤不回来：分支 push 之后才改成私有的 Item 会留在该分支的历史里（PR 是 squash 合并的，所以不会进 main 的历史）。
+6. `public`：提交分支并 push。push 之前，还没有任何远端见过的提交（来自之前 `--no-push` 的运行，多于一个时）会被压成一个提交，内容是当前的投影，放在 base 之上，或放在已 push 的分支之上。这样，本地发布过又在 push 前撤回的 Item 永远不会到达 GitHub。以下情况这一步会失败，分支保持原样，什么都不 push：这些提交改了 `data/`、`README.md`、`README.zh-CN.md` 和 `docs/` 以外的文件（压缩会丢掉这些改动）；本地分支和已 push 的分支已经分叉。这时先手动理顺分支，再重新运行。已经 push 的内容撤不回来：分支 push 之后才改成私有的 Item 会留在该分支的历史里（PR 是 squash 合并的，所以不会进 main 的历史）。
 7. `pr`：`gh pr create` 和 `gh pr merge --auto --squash`（配置里的 `publicRepo` 指定仓库）。只复用所有者自己打开（`--author @me`）、来自公开仓库本身分支的已打开 PR，从不复用 fork 的 PR。开启自动合并之前，PR 的 head 必须是这次 run push 的提交（`gh pr view --json headRefOid`），合并时也带上 `--match-head-commit` 指定这个提交；否则这一步失败，什么都不合并。
 8. `wait-merge`：轮询 PR，最长 `mergeTimeoutMs`（20 分钟）；超时不算失败。
 9. `lists-sync`：见下文；它基于 main 当前的内容运行，所以超时后才合并的 PR 会由下一次 run 同步。
@@ -263,7 +263,7 @@ README 是中文的：依次是标题、数量统计、在线目录链接、带�
 
 `init data` 写入以下文件，但不 push：
 
-- 公开仓库：`.github/workflows/check.yml`（job `check`，在指向 main 的 PR 上运行）和 `.github/scripts/validate.mjs`。后者是一个零依赖的检查脚本，检查 `data/items.json`（schemaVersion、只含白名单字段、不含 Visibility、私有仓库标记或 X 正文、Summary 长度）和改动的路径（只允许 `data/`、`README.md`、`docs/`）。CI 运行的是 base 分支上的那份脚本。
+- 公开仓库：`.github/workflows/check.yml`（job `check`，在指向 main 的 PR 上运行）和 `.github/scripts/validate.mjs`。后者是一个零依赖的检查脚本，检查 `data/items.json`（schemaVersion、只含白名单字段、不含 Visibility、私有仓库标记或 X 正文、Summary 长度）和改动的路径（只允许 `data/`、`README.md`、`README.zh-CN.md`、`docs/`）。CI 运行的是 base 分支上的那份脚本。
 - 私有仓库：`.github/workflows/heartbeat.yml`，每 6 小时运行一次，以及 `.github/scripts/heartbeat-check.mjs`：`lastSuccessAt` 超过 48 小时时开一个 issue（同一时间只开一个），下次成功后关闭。
 
 `init github --dry-run` 打印针对公开仓库的 `gh api` 命令：自动合并、要求 `check` 的 main 分支保护、从 main 的 `/docs` 提供 Pages。

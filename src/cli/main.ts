@@ -51,7 +51,7 @@ Usage:
                                                  change a Classification by hand and Lock it
   starsieve override <id> --store <dir> --unskip take a Skipped Item back; the next X collection stores it as pending
   starsieve publish --store <dir> --out <dir> [--dry-run]
-                                                 build the Public Projection (items.json, README.md)
+                                                 build the Public Projection (items.json, README.md, README.zh-CN.md)
   starsieve check --store <dir>                  report what is left to classify or publish
   starsieve list --store <dir> [--q <words>] [--category <name>] [--source github|x] [--visibility public|private]
                  [--needs-review] [--limit 50]   find Items by words (every word must match), newest first; read-only

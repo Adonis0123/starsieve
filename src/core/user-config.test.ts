@@ -27,6 +27,23 @@ describe('user config', () => {
     })
   })
 
+  it('reads readme.title per language, and rejects an empty, multi-line or unknown-language title', async () => {
+    await withDir(async (dir) => {
+      const path = join(dir, 'config.json')
+      const load = async (doc: unknown) => {
+        await writeFile(path, JSON.stringify(doc))
+        return loadUserConfig(path)
+      }
+      assert.deepEqual(await load({ readme: { title: { en: ' My stars ', zh: '我的收藏' } } }), {
+        readme: { title: { en: 'My stars', zh: '我的收藏' } },
+      })
+      assert.deepEqual(await load({ readme: { title: { zh: '我的收藏' } } }), { readme: { title: { zh: '我的收藏' } } })
+      for (const title of [{}, { en: '' }, { zh: 'a\nb' }, { en: 'A', fr: 'B' }, { en: 42 }, ['A'], null, 7]) {
+        await assert.rejects(load({ readme: { title } }), /readme\.title must be one non-empty line, or \{ "en"/)
+      }
+    })
+  })
+
   it('reads collectX as a boolean and rejects anything else', async () => {
     await withDir(async (dir) => {
       const path = join(dir, 'config.json')

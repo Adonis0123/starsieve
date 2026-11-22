@@ -39,6 +39,9 @@ describe('validateCategoryTable', () => {
     ['no 未分类', table(['工具']), /must contain "未分类"/],
     ['too many', table([...Array.from({ length: MAX_CATEGORIES }, (_, i) => `c${i}`), '未分类']), /at most 32 Categories/],
     ['a missing description', { schemaVersion: 1, categories: [{ name: '未分类' }] }, /description must be a string/],
+    ['an empty nameEn', { schemaVersion: 1, categories: [{ name: '未分类', description: '', nameEn: ' ' }] }, /nameEn must be one non-empty line/],
+    ['a multi-line nameEn', { schemaVersion: 1, categories: [{ name: '未分类', description: '', nameEn: 'a\nb' }] }, /nameEn must be one non-empty line/],
+    ['a non-string nameEn', { schemaVersion: 1, categories: [{ name: '未分类', description: '', nameEn: 1 }] }, /nameEn must be one non-empty line/],
   ] as const) {
     it(`rejects ${why}`, () => {
       assert.throws(() => validateCategoryTable(value), error)
@@ -48,6 +51,22 @@ describe('validateCategoryTable', () => {
   it('accepts the default table, which fits GitHub Lists and has 未分类', () => {
     assert.deepEqual(validateCategoryTable(DEFAULT_CATEGORIES), DEFAULT_CATEGORIES)
     assert.equal(DEFAULT_CATEGORIES.categories.length, 12)
+  })
+
+  it('keeps a trimmed nameEn when given and adds none when not', () => {
+    const doc = {
+      schemaVersion: 1,
+      categories: [
+        { name: '工具', description: 'd', nameEn: ' Tools ' },
+        { name: '未分类', description: 'd' },
+      ],
+    }
+    assert.deepEqual(validateCategoryTable(doc).categories, [
+      { name: '工具', description: 'd', nameEn: 'Tools' },
+      { name: '未分类', description: 'd' },
+    ])
+    assert.ok(DEFAULT_CATEGORIES.categories.every((c) => c.nameEn), 'every default Category has an English name')
+    assert.equal(DEFAULT_CATEGORIES.categories.find((c) => c.name === '未分类')?.nameEn, 'Uncategorized')
   })
 })
 
@@ -87,6 +106,15 @@ describe('setCategories', () => {
       // The removed Items are pending again; the private star never is.
       const pending = buildBatch(await loadItems(s), after, 25).items.map((e) => e.id)
       assert.deepEqual(pending.sort(), ['github:acme/auto', 'github:acme/flagged'])
+    })
+  })
+
+  it('stores nameEn, and a table with and without it loads back', async () => {
+    await withDir(async (dir) => {
+      const s = await store(dir)
+      const doc = { schemaVersion: 1, categories: [{ name: '工具', description: 'd', nameEn: 'Tools' }, { name: '未分类', description: 'd' }] }
+      await setCategories(s, doc)
+      assert.deepEqual(await loadCategories(s), doc)
     })
   })
 

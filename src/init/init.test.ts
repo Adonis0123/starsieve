@@ -56,9 +56,9 @@ describe('validate.mjs', () => {
     })
   })
 
-  it('allows only data/, README.md and docs/ in a PR', () => {
-    assert.deepEqual(validatePaths(['data/items.json', 'README.md', 'docs/index.html']), [])
-    assert.equal(validatePaths(['.github/workflows/check.yml', 'package.json']).length, 2)
+  it('allows only data/, README.md, README.zh-CN.md and docs/ in a PR', () => {
+    assert.deepEqual(validatePaths(['data/items.json', 'README.md', 'README.zh-CN.md', 'docs/index.html']), [])
+    assert.equal(validatePaths(['.github/workflows/check.yml', 'package.json', 'README.en.md', 'docs.md']).length, 4)
   })
 
   it('as a script: exit 1 with the problem for a bad file, exit 0 for a good one; --base checks changed paths', async () => {

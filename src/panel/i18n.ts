@@ -1,6 +1,6 @@
-// Page strings: English is the key, ZH holds the same keys in Chinese. client.js and page.ts call t("English"), and the
-// public README (publish/projection.ts) is always Chinese. i18n.test.ts fails when a t() string has no entry here or an
-// entry is no longer used. CLI and API messages stay English.
+// Page strings: English is the key, ZH holds the same keys in Chinese. client.js and page.ts call t("English"), and so
+// do the public READMEs (publish/projection.ts): README.md takes the keys as they are, README.zh-CN.md takes ZH.
+// i18n.test.ts fails when a t() string has no entry here or an entry is no longer used. CLI and API messages stay English.
 
 export type Lang = 'en' | 'zh'
 
@@ -11,7 +11,7 @@ export const ZH: Record<string, string> = {
   'Repositories I starred on GitHub and posts I saved on X, sorted into Categories by starsieve.':
     '我在 GitHub 上 star 的仓库和在 X 上收藏的帖子，由 starsieve 分类整理。',
   'This page needs JavaScript.': '这个页面需要 JavaScript。',
-  // projection.ts: the public README
+  // projection.ts: the public READMEs
   'Tech collection': '技术收藏',
   'Nothing published yet.': '还没有公开的条目。',
   '{repos} GitHub repositories': '{repos} 个 GitHub 仓库',

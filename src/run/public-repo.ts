@@ -15,7 +15,7 @@ const execFileP = promisify(execFile)
 export const BRANCH_PREFIX = 'starsieve/'
 export const ITEMS_FILE = 'data/items.json'
 /** Everything `run` writes into the public repository; the required check allows nothing else. */
-export const PUBLIC_PATHS = ['data', 'README.md', 'docs'] as const
+export const PUBLIC_PATHS = ['data', 'README.md', 'README.zh-CN.md', 'docs'] as const
 
 /** `origin/main` when the clone has it, else `main`. */
 export async function baseRef(repo: string): Promise<string> {

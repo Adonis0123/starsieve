@@ -84,8 +84,11 @@ export interface Classification {
 }
 
 export interface Category {
+  /** The Category's identity: what Classifications, items.json and the Classifier use. */
   name: string
   description: string
+  /** Shown instead of `name` in the English public README only; without it the English README shows `name`. */
+  nameEn?: string
 }
 
 export interface CategoryTable {
