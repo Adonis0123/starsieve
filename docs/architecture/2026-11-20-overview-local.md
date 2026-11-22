@@ -13,11 +13,11 @@
 | Classifier runner | backend | Writes one Batch into a prompt, runs the configured agent CLI in an empty workspace with all tools denied, parses stdout JSON | `src/classify` (planned) |
 | starsieve Panel | frontend | One frontend: Portal Panel via `createPanelHandler` (all Items, edits call `override`) and the public static build (Public Projection only) | `src/panel` (planned) |
 | starsieve Skill | agent skill | Routes natural language to CLI commands for any agent | `skill/` (planned) |
-| `Adonis0123/stars-private` | private repo | Every Item, raw data, Skipped Item ids, Classifications, Category Table, Backfill reach, Heartbeat | GitHub |
-| `Adonis0123/stars` | public repo | Public Projection JSON, generated README catalog, Pages site | GitHub |
+| `<owner>/stars-private` | private repo | Every Item, raw data, Skipped Item ids, Classifications, Category Table, Backfill reach, Heartbeat | GitHub |
+| `<owner>/stars` | public repo | Public Projection JSON, generated README catalog, Pages site | GitHub |
 | Required check workflow | CI | Second line of defense on the public PR: schema, only data files changed, no private Item; gates auto-merge | `stars/.github/workflows` (planned) |
 | Heartbeat workflow | CI | Opens an issue when the last successful run is older than 48 hours | `stars-private/.github/workflows` (planned) |
-| Local Portal | local gateway | Serves the Panel at `stars.localhost:17333` from the local Private Store clone | `~/.config/skills-manager/portal.json` entry |
+| Local Portal | local gateway | Serves the Panel at a local address from the local Private Store clone | an entry in the Portal's `portal.json` |
 
 ## Relationships
 

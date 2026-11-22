@@ -5,14 +5,14 @@ metadata:
   version: "0.1.0"
   requires:
     bins: [node, gh]
-  cliHelp: pnpm --dir ~/coding/starsieve starsieve --help
+  cliHelp: pnpm --dir <starsieve> starsieve --help
 ---
 
 # starsieve
 
-starsieve keeps every GitHub star and technical X like or bookmark in a Private Store (a private git repository), classifies new ones with an agent CLI, and publishes a filtered Public Projection to a public repository with a site on GitHub Pages. Terms follow `~/coding/starsieve/GLOSSARY.md`.
+starsieve keeps every GitHub star and technical X like or bookmark in a Private Store (a private git repository), classifies new ones with an agent CLI, and publishes a filtered Public Projection to a public repository with a site on GitHub Pages. Terms follow `<starsieve>/GLOSSARY.md`, where `<starsieve>` is the owner's clone of the starsieve repository (this file is `skills/starsieve/SKILL.md` in it).
 
-Run the CLI as `pnpm --dir ~/coding/starsieve -s starsieve <command> --json`. Commands that take `--store` get it from `storePath` in `~/.config/starsieve/config.json`; `run` and `lists sync` read it themselves. That config file and the run logs are the only files you read directly.
+Run the CLI as `pnpm --dir <starsieve> -s starsieve <command> --json`. Commands that take `--store` get it from `storePath` in `~/.config/starsieve/config.json`; `run` and `lists sync` read it themselves. That config file and the run logs are the only files you read directly.
 
 ## Hard rules
 
@@ -30,7 +30,7 @@ Run the CLI as `pnpm --dir ~/coding/starsieve -s starsieve <command> --json`. Co
 
 | The user wants to | Run |
 |---|---|
-| Find stars or saved posts by topic | `list --store <s> --q "<words>" --json` (every word must match; add `--category`, `--source github\|x`, `--needs-review`, `--limit`); the user can also browse the Panel `http://stars.localhost:17333` |
+| Find stars or saved posts by topic | `list --store <s> --q "<words>" --json` (every word must match; add `--category`, `--source github\|x`, `--needs-review`, `--limit`); the user can also browse the Panel, when they run the Local Tools Portal |
 | Move an Item to another Category, change tags or summary | `override <id> --store <s> --category <name> [--tags a,b] [--summary "..."] --json` (an unknown Category fails with the list of valid names) |
 | Hide an Item from the public list, or publish it | `override <id> --store <s> --visibility private\|public --json` |
 | Take back an X post skipped as non-technical | `override <id> --store <s> --unskip --json`; the next `collect x` stores it again |

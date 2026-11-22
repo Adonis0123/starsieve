@@ -1,4 +1,4 @@
-// starsieve Panel for the Local Tools Portal (`kind: "panel"`, docs/portal-architecture.md §4 in skills-manager).
+// starsieve Panel for the Local Tools Portal (`kind: "panel"`, §4 of the Portal's docs/portal-architecture.md).
 // createPanelHandler({ basePath, allowedHosts, theme, readOnly, lang }) serves:
 //   GET  /             the page (client.js renders it; the public site uses the same page with inline data)
 //   GET  /api/health   { app: "starsieve", version }
