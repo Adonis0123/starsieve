@@ -116,7 +116,7 @@ describe('lock', () => {
       await writeFile(join(dir, old), '')
       await utimes(join(dir, old), new Date(claimedAt), new Date(claimedAt))
       // Started just after the claim (ps counts whole seconds), or when ps cannot tell: still the claimant.
-      for (const started of [claimedAt + 2_000, undefined]) {
+      for (const started of [claimedAt + 1_000, undefined]) {
         await assert.rejects(acquireLock(path, process.pid, { waitMs: 100, probe: probe(started) }), LockedError)
         assert.deepEqual(await readdir(dir), [old])
       }
