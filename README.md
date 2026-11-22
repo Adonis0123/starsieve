@@ -1,5 +1,7 @@
 # starsieve
 
+English | [简体中文](README.zh-CN.md)
+
 Sorts the repositories you starred on GitHub and the technical posts you liked or bookmarked on X into Categories with any agent CLI as the Classifier, and publishes only the Items that may be public. Terms follow [GLOSSARY.md](GLOSSARY.md); decisions are in [docs/adr](docs/adr).
 
 Built so far: collect (GitHub stars, X likes and bookmarks), Backfill, classify, apply, override (and unskip), publish, check, the Portal Panel, the public site build, the daily `run` (git commit and push, PR with auto-merge, Heartbeat), GitHub Lists sync, the data repositories' CI templates and the LaunchAgent.
