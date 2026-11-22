@@ -156,7 +156,7 @@ After a failure, the public clone goes back to the branch it was on. Of the run'
 
 `init github --dry-run` prints the `gh api` commands for the public repository: auto-merge, branch protection on main requiring `check`, Pages from main `/docs`.
 
-`schedule install` writes `~/Library/LaunchAgents/com.adonis.starsieve.plist` (daily 08:17, not at load, the login shell's PATH, logs in `~/Library/Logs/starsieve/`) and loads it with `launchctl bootstrap`. Its command carries `--no-push` until `schedulePush` is `true` in the config, and `--max-batches` from `scheduleMaxBatches`; install again after changing either.
+`schedule install` writes `~/Library/LaunchAgents/io.github.starsieve.plist` (daily 08:17, not at load, the login shell's PATH, logs in `~/Library/Logs/starsieve/`) and loads it with `launchctl bootstrap`. A job left under the old label `com.adonis.starsieve` is booted out and its plist removed first; `schedule status` and `schedule uninstall` also find it. Its command carries `--no-push` until `schedulePush` is `true` in the config, and `--max-batches` from `scheduleMaxBatches`; install again after changing either.
 
 ## Agent Skill
 

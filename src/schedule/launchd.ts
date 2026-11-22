@@ -7,7 +7,9 @@ import { join } from 'node:path'
 import { writeText } from '../core/json.ts'
 import { type Exec, exec as realExec, tail } from '../run/exec.ts'
 
-export const LABEL = 'com.adonis.starsieve'
+export const LABEL = 'io.github.starsieve'
+/** Labels earlier versions installed under; install and uninstall boot them out and remove their plists. */
+export const LEGACY_LABELS = ['com.adonis.starsieve'] as const
 export const HOUR = 8
 export const MINUTE = 17
 
@@ -76,8 +78,20 @@ export interface ScheduleOptions {
   loginPath?: () => Promise<string>
 }
 
-export function plistPath(home = homedir()): string {
-  return join(home, 'Library', 'LaunchAgents', `${LABEL}.plist`)
+export function plistPath(home = homedir(), label: string = LABEL): string {
+  return join(home, 'Library', 'LaunchAgents', `${label}.plist`)
+}
+
+/** Boots out and removes the jobs installed under a legacy label; returns the plists that existed. */
+async function removeLegacy(launchctl: Exec, uid: number, home: string | undefined): Promise<string[]> {
+  const removed: string[] = []
+  for (const label of LEGACY_LABELS) {
+    const file = plistPath(home, label)
+    await launchctl('launchctl', ['bootout', `gui/${uid}/${label}`])
+    if ((await readFile(file, 'utf8').catch(() => undefined)) !== undefined) removed.push(file)
+    await rm(file, { force: true })
+  }
+  return removed
 }
 
 const MARK = '__STARSIEVE_PATH__'
@@ -112,6 +126,8 @@ export interface InstallResult {
   programArguments: string[]
   path: string
   push: boolean
+  /** Plists of a legacy label that install replaced. */
+  legacyRemoved: string[]
 }
 
 export async function install(o: ScheduleOptions): Promise<InstallResult> {
@@ -134,25 +150,33 @@ export async function install(o: ScheduleOptions): Promise<InstallResult> {
       minute: MINUTE,
     }),
   )
+  // A job under a legacy label would run starsieve a second time each day.
+  const legacyRemoved = await removeLegacy(launchctl, uid, o.home)
   // bootout first, so installing again replaces the loaded job instead of failing.
   await launchctl('launchctl', ['bootout', `gui/${uid}/${LABEL}`])
   const r = await launchctl('launchctl', ['bootstrap', `gui/${uid}`, file])
   if (r.code !== 0) throw new Error(`launchctl bootstrap gui/${uid} ${file} failed: ${tail(r)}`)
-  return { plist: file, programArguments: args, path, push: o.push }
+  return { plist: file, programArguments: args, path, push: o.push, legacyRemoved }
 }
 
-export async function uninstall(o: Pick<ScheduleOptions, 'home' | 'uid' | 'launchctl'>): Promise<{ plist: string; removed: boolean }> {
+export async function uninstall(
+  o: Pick<ScheduleOptions, 'home' | 'uid' | 'launchctl'>,
+): Promise<{ plist: string; removed: boolean; legacyRemoved: string[] }> {
   const launchctl = o.launchctl ?? realExec
   const uid = o.uid ?? process.getuid!()
   const file = plistPath(o.home)
   await launchctl('launchctl', ['bootout', `gui/${uid}/${LABEL}`])
   const existed = (await readFile(file, 'utf8').catch(() => undefined)) !== undefined
   await rm(file, { force: true })
-  return { plist: file, removed: existed }
+  const legacyRemoved = await removeLegacy(launchctl, uid, o.home)
+  return { plist: file, removed: existed || legacyRemoved.length > 0, legacyRemoved }
 }
 
 export interface StatusResult {
   plist: string
+  label: string
+  /** Only a legacy label's plist is installed; `schedule install` migrates it. */
+  legacy: boolean
   installed: boolean
   loaded: boolean
   /** `--no-push` is in the installed command. */
@@ -165,13 +189,22 @@ export interface StatusResult {
 export async function status(o: Pick<ScheduleOptions, 'home' | 'uid' | 'launchctl'>): Promise<StatusResult> {
   const launchctl = o.launchctl ?? realExec
   const uid = o.uid ?? process.getuid!()
-  const file = plistPath(o.home)
-  const text = await readFile(file, 'utf8').catch(() => undefined)
-  const r = await launchctl('launchctl', ['print', `gui/${uid}/${LABEL}`])
+  let label: string = LABEL
+  let file = plistPath(o.home)
+  let text = await readFile(file, 'utf8').catch(() => undefined)
+  for (const old of text === undefined ? LEGACY_LABELS : []) {
+    const legacyText = await readFile(plistPath(o.home, old), 'utf8').catch(() => undefined)
+    if (legacyText === undefined) continue
+    ;[label, file, text] = [old, plistPath(o.home, old), legacyText]
+    break
+  }
+  const r = await launchctl('launchctl', ['print', `gui/${uid}/${label}`])
   const field = (name: string) => new RegExp(`^\\s*${name} = (.+)$`, 'm').exec(r.stdout)?.[1]?.trim() ?? null
   const runs = field('runs')
   return {
     plist: file,
+    label,
+    legacy: label !== LABEL,
     installed: text !== undefined,
     loaded: r.code === 0,
     noPush: text === undefined ? null : text.includes('<string>--no-push</string>'),

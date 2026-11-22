@@ -449,12 +449,12 @@ export async function main(argv: string[], options: MainOptions = {}): Promise<n
           launchctl: options.launchctl,
           loginPath: options.loginPath,
         })
-        emit(found.key, { ...r }, `installed ${r.plist}: daily at 08:17, ${r.programArguments.slice(2).join(' ')}${push ? '' : ' (schedulePush is false)'}`)
+        emit(found.key, { ...r }, `installed ${r.plist}: daily at 08:17, ${r.programArguments.slice(2).join(' ')}${push ? '' : ' (schedulePush is false)'}${r.legacyRemoved.length ? `; removed ${r.legacyRemoved.join(', ')}` : ''}`)
         return 0
       }
       case 'schedule uninstall': {
         const r = await uninstall({ home: options.home, launchctl: options.launchctl })
-        emit(found.key, { ...r }, r.removed ? `removed ${r.plist}` : `${r.plist} was not installed`)
+        emit(found.key, { ...r }, r.removed ? `removed ${[r.plist, ...r.legacyRemoved].join(', ')}` : `${r.plist} was not installed`)
         return 0
       }
       case 'schedule status': {
@@ -463,7 +463,7 @@ export async function main(argv: string[], options: MainOptions = {}): Promise<n
           found.key,
           { ...r },
           r.installed
-            ? `${r.plist}: ${r.loaded ? `loaded (${r.state ?? 'unknown'}, ${r.runs ?? 0} runs, last exit ${r.lastExitCode ?? 'none'})` : 'not loaded'}${r.noPush ? ', --no-push' : ''}`
+            ? `${r.plist}: ${r.loaded ? `loaded (${r.state ?? 'unknown'}, ${r.runs ?? 0} runs, last exit ${r.lastExitCode ?? 'none'})` : 'not loaded'}${r.noPush ? ', --no-push' : ''}${r.legacy ? `; old label ${r.label}, "schedule install" replaces it` : ''}`
             : 'not installed',
         )
         return 0

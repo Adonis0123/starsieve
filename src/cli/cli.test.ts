@@ -294,7 +294,7 @@ describe('cli: run, lists sync, init, schedule', () => {
       const r = JSON.parse(out) as { programArguments: string[]; push: boolean }
       assert.deepEqual(r.programArguments.slice(2), ['run', '--no-push', '--max-batches', '3'])
       assert.equal(r.push, false)
-      assert.equal(calls[1]?.[0], 'bootstrap')
+      assert.equal(calls.at(-1)?.[0], 'bootstrap')
     })
   })
 })
