@@ -8,7 +8,7 @@ Built so far: collect (GitHub stars, X likes and bookmarks), Backfill, classify,
 
 - macOS. `schedule` installs a LaunchAgent, and logs and saved Classifier output go to `~/Library/Logs/starsieve/`.
 - Node 22.18+ (runs the TypeScript sources directly) and pnpm.
-- `gh` logged in (`gh auth login`) as the owner of both data repositories. Its default `repo` scope covers reading your stars (`gh api user/starred`, also those of private repositories), pushing, and the daily PR (`gh pr create`, `gh pr merge --auto`). `run` also syncs GitHub Lists (`gh api graphql`: `viewer.lists`, `createUserList`, `updateUserListsForItem`), which needs the `user` scope: `gh auth refresh -s user`. Pushing the `.github/workflows/` files that `init data` writes needs the `workflow` scope when git uses `gh` for HTTPS: `gh auth refresh -s workflow`. The commands `init github --dry-run` prints change repository settings, so they need admin rights on the public repository.
+- `gh` logged in (`gh auth login`) as the owner of both data repositories. Its default `repo` scope covers reading your stars (`gh api user/starred`, also those of private repositories), pushing, and the daily PR (`gh pr create`, `gh pr merge --auto`). `run` also syncs GitHub Lists (`gh api graphql`: `viewer.lists`, `createUserList`, `updateUserListsForItem`); if GitHub refuses those for a missing scope, add `user`: `gh auth refresh -s user`. Pushing the `.github/workflows/` files that `init data` writes needs the `workflow` scope when git uses `gh` for HTTPS: `gh auth refresh -s workflow`. The commands `init github --dry-run` prints change repository settings, so they need admin rights on the public repository.
 - An agent CLI as the Classifier; the default is `cursor-agent` (see [Classifier](#classifier) before using another one).
 - For X (optional): the `ego-browser` CLI with its `Default` profile logged in to x.com. Without it, set `"collectX": false` in the user config, and `run` skips X.
 - The Local Tools Portal (optional): only the Panel needs it; `site build` and `run` work without it.
@@ -51,14 +51,18 @@ The default Category Table (`categories init`) and the published README are in C
    pnpm starsieve classify --store ~/stars-private --limit 25
    ```
 
-5. Look at what would be public, in a scratch folder (`run` writes the real files into the public clone):
+5. See what would be public: `publish --dry-run` counts the public Items and writes nothing, and `site build` writes the site into a scratch folder (`run` writes the real files into the public clone):
 
    ```sh
-   pnpm starsieve publish --store ~/stars-private --out /tmp/starsieve-preview
+   pnpm starsieve publish --store ~/stars-private --out /tmp/starsieve-preview --dry-run
    pnpm starsieve site build --store ~/stars-private --out /tmp/starsieve-preview/site
    ```
 
-6. Write `~/.config/starsieve/config.json` (see [Configuration](#configuration)); `run` needs at least `storePath`, `publicRepoPath` and `publicRepo`, and `"collectX": false` without ego-browser.
+6. Write `~/.config/starsieve/config.json`. `run` needs at least these keys; leave out `collectX` when ego-browser is set up for X. All keys are in [Configuration](#configuration).
+
+   ```json
+   { "storePath": "~/stars-private", "publicRepoPath": "~/stars", "publicRepo": "<owner>/stars", "collectX": false }
+   ```
 
 7. `pnpm starsieve run --dry-run` prints the plan; `pnpm starsieve run --no-push` runs everything but only commits locally.
 
@@ -94,7 +98,7 @@ There are two config files:
   | `publicRepo` | none | Its `owner/name`, for `gh` (the PR, `init github`) and the check that the store never pushes to it. |
   | `siteUrl` | none | The public site, linked from the README; never guessed from `publicRepo`. |
   | `readme.title` | 技术收藏 | The published README's title. |
-  | `portalCss` | none | The Portal's `local-tools.css`, inlined by `site build` instead of `src/site/default.css`. |
+  | `portalCss` | none | The Portal's `local-tools.css`, inlined by `site build` instead of `src/site/default.css`. Leave it out without the Portal: a file that does not exist fails `site build` and `run`. |
   | `collectX` | `true` | `false`: `run` skips `collect-x` (the step shows as `skipped`); X Items already in the store are still published. |
   | `schedulePush` | `false` | `true`: the LaunchAgent's `run` pushes; otherwise it carries `--no-push`. |
   | `scheduleMaxBatches` | none | The LaunchAgent's `run --max-batches`. |
